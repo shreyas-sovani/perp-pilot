@@ -11,13 +11,17 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 2 — Configuration & SDK Layer (not started)
-* **Last Completed Task:** TASK-1.4
+* **Current Phase:** Phase 3 — Indexer (not started)
+* **Last Completed Task:** TASK-2.6
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
   * `src/placeholder.ts` deleted in TASK-1.1 (`src/logger.ts` is the tsc input).
-  * Logger deviation: backlog redact paths `*.privateKey` / `*.apiKey` miss top-level fields. Verification printed the raw key. `src/logger.ts` also redacts top-level `privateKey`/`apiKey` and runs the pattern censor (key name + `0x`+64 hex) inside pino `hooks.logMethod`.
+  * Logger: top-level `privateKey`/`apiKey` plus pattern censor in pino `hooks.logMethod`. Backlog paths `*.privateKey` missed top-level fields.
+  * SDK bootstrap (`src/sdk.ts`): constructor fields are `wsRpcUrl` + `indexerUrl`, not backlog `rpcUrl`. Live `requireMarket` returned `ETH 18` tick `10000000000000000`. Details in `docs/sdk-api.md`.
+  * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
+  * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
+  * TASK-2.6 balance check 2026-10-27: bot wallet `5` STT (`5000000000000000000` wei), above `0.1` STT. Websocket client from the check may need a process exit; reading the balance succeeded.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
@@ -325,7 +329,7 @@
 
 ### Phase 2: Configuration & SDK Layer
 
-- [ ] **TASK-2.1: Write `src/config.ts` (zod env parsing).**
+- [x] **TASK-2.1: Write `src/config.ts` (zod env parsing).**
   * *Objective:* Fail-fast validated config; single import surface for all modules.
   * *Input/Dependencies:* TASK-0.5.
   * *Exact Action:* Create `src/config.ts` with EXACTLY:
@@ -365,7 +369,7 @@
     ```
   * *Verification Criteria:* `npx tsx -e "import {cfg} from './src/config.ts'; console.log(cfg.CHAIN_ID, cfg.DRY_RUN)"` prints `50383 true`. And a bad key fails: `npx tsx -e "process.env.RPC_URL_WS='http://x'; import('./src/config.ts').then(()=>console.log('BAD')).catch(()=>console.log('OK'))"` prints `OK`.
 
-- [ ] **TASK-2.2: Write `scripts/wallet-new.ts` (burner key generator).**
+- [x] **TASK-2.2: Write `scripts/wallet-new.ts` (burner key generator).**
   * *Objective:* Deterministic, safe bot-key creation — the agent NEVER asks the human for a main wallet key.
   * *Input/Dependencies:* TASK-2.1.
   * *Exact Action:* Create `scripts/wallet-new.ts` with EXACTLY:
@@ -389,7 +393,7 @@
     ```
   * *Verification Criteria:* Run `npm run wallet:new` twice: first prints an address, second prints `BOT key already exists` and the same address via `npx tsx -e "import 'dotenv/config'; import {privateKeyToAccount} from 'viem/accounts'; console.log(privateKeyToAccount(process.env.BOT_PRIVATE_KEY!).address)"`.
 
-- [ ] **TASK-2.3: Write `src/sdk.ts` (SDK bootstrap, thin and defensive).**
+- [x] **TASK-2.3: Write `src/sdk.ts` (SDK bootstrap, thin and defensive).**
   * *Objective:* One module that constructs the SomniaMarkets client and re-exports the perps surface used everywhere else.
   * *Input/Dependencies:* TASK-2.1, TASK-2.4 (extract `.d.ts` FIRST).
   * *Exact Action:*
@@ -426,7 +430,7 @@
     2. If `initSdk` fails typecheck because the constructor differs, fix ONLY the option mapping in `initSdk` using the real `.d.ts` (from TASK-2.4). Do not change any other module.
   * *Verification Criteria:* `npm run typecheck` exits 0, AND `npx tsx -e "import {initSdk} from './src/sdk.ts'; import {requireMarket} from './src/sdk.ts'; const m = initSdk(); requireMarket(m).then(r => console.log(r.baseSymbol, r.baseDecimals, r.tickSize))"` prints `ETH 18 <some positive value>` within 30s (read-only, no key needed).
 
-- [ ] **TASK-2.4: Extract the installed SDK's true API surface into `docs/sdk-api.md`.**
+- [x] **TASK-2.4: Extract the installed SDK's true API surface into `docs/sdk-api.md`.**
   * *Objective:* Anti-drift: every SDK call the project makes is verified against the actual installed typings before use.
   * *Input/Dependencies:* TASK-0.4.
   * *Exact Action:* Run and save output:
@@ -441,11 +445,11 @@
     Then READ `docs/sdk-api.md` and confirm ALL of these symbols appear (or their clearly-equivalent rename): `SomniaMarkets`, `hidekiTestnet`, `listPerpMarkets`, `getMaxPerpOrderSize`, `placePerpOrder`, `getPerpVoucherEligibility`, `claimPerpVoucher`, `getPerpSystemConfig`, `listPerpOrderRejections`, `ORDER_TYPE`. Search for `position` and `cancel` methods too — record whatever exists (exact names + signatures) under a heading `## Available position/cancel methods`.
   * *Verification Criteria:* `docs/sdk-api.md` exists, lists the version, and has a section `## Available position/cancel methods` (even if the answer is "none found"). If a listed symbol is genuinely absent, append it to `docs/sdk-api.md` under `## Deviations from docs` — that list feeds TASK-8.2 feedback reports. Commit this file.
 
-- [ ] **TASK-2.5: Commit Phase 2.**
+- [x] **TASK-2.5: Commit Phase 2.**
   * *Exact Action:* `git add -A && git commit -m "feat: config, wallet bootstrap, sdk layer + extracted api surface" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`
   * *Verification Criteria:* `npm run typecheck` exits 0; `git log --oneline | head -3` shows the commit.
 
-- [ ] **TASK-2.6: [HUMAN_STEP] Fund the bot wallet with testnet STT gas.**
+- [x] **TASK-2.6: [HUMAN_STEP] Fund the bot wallet with testnet STT gas.**
   * *Objective:* Gas for voucher claim + probe txs + live orders. All later on-chain tasks are blocked without it.
   * *Instructions for Human:* (1) Run `npx tsx -e "import 'dotenv/config'; import {privateKeyToAccount} from 'viem/accounts'; console.log(privateKeyToAccount(process.env.BOT_PRIVATE_KEY!).address)"` and copy the printed address. (2) Get testnet STT to that address on **chain 50383 (Tokyo/hideki)** — try in order: (a) the dreamDEX testnet app's top-up / bot-link gas flow at `https://app.testnet.dreamdex.io/perps`; (b) the Somnia faucet `https://testnet.somnia.network/` (if it asks for a network, pick Tokyo/Hideki — if it only serves Shannon, skip); (c) Google Cloud Web3 faucet `https://cloud.google.com/application/web3/faucet/somnia` (Shannon-only? skip); (d) Somnia Discord `#dev-chat`, tag `@emreyeth`, request Tokyo testnet (50383) STT for a hackathon bot wallet, include the address. Target balance: ≥ 0.5 STT.
   * *Agent Instructions upon resume:* Run the balance check:

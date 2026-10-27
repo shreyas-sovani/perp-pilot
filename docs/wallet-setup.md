@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 1 plumbing is in (`src/logger.ts`, `src/db.ts`, `src/bus.ts`). Logger redacts top-level keys (backlog path `*.privateKey` missed them). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Local `.env` kept (linked-bot keys, `DRY_RUN=true`). SDK `@somnia-chain/markets-sdk@0.32.1`. Next work is Phase 2 (config, wallet script, SDK layer). Usable perps margin still unconfirmed until `npm run doctor` (TASK-6.1). Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 2 done. `src/config.ts`, `scripts/wallet-new.ts`, `src/sdk.ts`, `docs/sdk-api.md`. Live market read: ETH-PERP base decimals 18, tick `10000000000000000`. Bot `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` holds 5 STT. `DRY_RUN=true`. SDK constructor uses `wsRpcUrl` + `indexerUrl` (see `docs/sdk-api.md`). Next is Phase 3 GraphQL indexer client. Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 
