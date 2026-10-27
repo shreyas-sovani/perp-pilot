@@ -11,15 +11,15 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 0 — stopped at TASK-0.6 (human GitHub remote)
-* **Last Completed Task:** TASK-0.5
+* **Current Phase:** Phase 1 — Core Plumbing (not started)
+* **Last Completed Task:** TASK-0.6
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
   * `src/placeholder.ts` exists only because `tsc` errors with TS18003 when `include` matches zero files. Delete it in TASK-1.1 once `src/logger.ts` exists.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
-* **Current Blockers/Bugs:** TASK-0.6 — no git remote named `origin`. Waiting for GitHub repository configuration. Do not start Phase 1 until `git remote -v` shows `origin` and `git ls-remote origin HEAD` exits 0.
+* **Current Blockers/Bugs:** None. Remote is private `https://github.com/shreyas-sovani/perp-pilot` (user override of the public `dreamdex-perps-pilot` name in TASK-0.6). Bounty submission (TASK-10.3) still expects a public repo before the portal deadline.
 
 ---
 
@@ -200,7 +200,7 @@
     ```
   * *Verification Criteria:* File exists; contains all keys above. Copy: `cp .env.example .env` (the real `.env` is gitignored).
 
-- [ ] **TASK-0.6: [HUMAN_STEP] Create the GitHub repository and push.**
+- [x] **TASK-0.6: [HUMAN_STEP] Create the GitHub repository and push.**
   * *Objective:* Public repo required by the bounty ("Every Build needs a GitHub repository").
   * *Instructions for Human:* (1) Create a new **public** GitHub repo named `dreamdex-perps-pilot` (no README/license init — keep it empty). (2) Run in the project root:
     ```bash
