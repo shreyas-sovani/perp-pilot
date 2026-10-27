@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 2 done. `src/config.ts`, `scripts/wallet-new.ts`, `src/sdk.ts`, `docs/sdk-api.md`. Live market read: ETH-PERP base decimals 18, tick `10000000000000000`. Bot `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` holds 5 STT. `DRY_RUN=true`. SDK constructor uses `wsRpcUrl` + `indexerUrl` (see `docs/sdk-api.md`). Next is Phase 3 GraphQL indexer client. Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 3 indexer client is in (`src/indexer.ts`). ETH market row and latest funding update both returned. Funding rate is a raw integer (`100000000000000`); the specified APR helper is not a human percent until scale is confirmed (`docs/sdk-api.md`). Bot holds 5 STT. `DRY_RUN=true`. Next is Phase 4 (schemas, market data, signals, risk). Private repo: `https://github.com/shreyas-sovani/perp-pilot`.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 

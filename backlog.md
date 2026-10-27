@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 3 — Indexer (not started)
-* **Last Completed Task:** TASK-2.6
+* **Current Phase:** Phase 4 — Agent layer (not started)
+* **Last Completed Task:** TASK-3.2
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -21,7 +21,7 @@
   * SDK bootstrap (`src/sdk.ts`): constructor fields are `wsRpcUrl` + `indexerUrl`, not backlog `rpcUrl`. Live `requireMarket` returned `ETH 18` tick `10000000000000000`. Details in `docs/sdk-api.md`.
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
-  * TASK-2.6 balance check 2026-10-27: bot wallet `5` STT (`5000000000000000000` wei), above `0.1` STT. Websocket client from the check may need a process exit; reading the balance succeeded.
+  * Indexer queries for ETH succeeded (no column rename). `markPrice` raw `2308975887405703000000`. `fundingRate` raw `100000000000000`. `fundingAprFromRate` left as specified (`rate * 3 * 365`) and is NOT a human APR on that raw integer. Scale hypothesis only: `/1e18` then `* 3 * 365` ≈ 10.95%. See `docs/sdk-api.md` Indexer deviations. Do not trade on the unscaled helper.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
@@ -460,7 +460,7 @@
 
 ### Phase 3: Indexer (GraphQL) Client
 
-- [ ] **TASK-3.1: Write `src/indexer.ts`.**
+- [x] **TASK-3.1: Write `src/indexer.ts`.**
   * *Objective:* Funding rates, funding payments, fills, market meta from the GraphQL indexer (verified live: root query has `Market`, `FundingRateUpdate`, `FundingPayment`, `Fill`, `AccountMarketPnl`, `Candle`, `OpenInterestSnapshot`).
   * *Input/Dependencies:* TASK-2.1.
   * *Exact Action:* Create `src/indexer.ts` with EXACTLY:
@@ -535,7 +535,7 @@
     curl -s -X POST "$GRAPHQL_URL" -H 'Content-Type: application/json' -d '{"query":"{ __type(name:\"Market\"){fields{name}}}"}'
     ```
 
-- [ ] **TASK-3.2: Commit Phase 3.** `git add -A && git commit -m "feat: graphql indexer client" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm run typecheck` exits 0.
+- [x] **TASK-3.2: Commit Phase 3.** `git add -A && git commit -m "feat: graphql indexer client" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm run typecheck` exits 0.
 
 ### Phase 4: Agent Layer (schemas, market data, signals, risk)
 

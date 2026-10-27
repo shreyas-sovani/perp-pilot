@@ -278,3 +278,10 @@ All of these exist in 0.32.1:
 - `placePerpOrder` has no `tif` argument. GTC is the default expiry (~50y) with `orderType` omitted or `ORDER_TYPE.LIMIT` (0). IOC is `ORDER_TYPE.MARKET` (2). FOK is `ORDER_TYPE.FILL_OR_KILL` (1). Post-only is `ORDER_TYPE.POST_ONLY` (3). The perp comment on `orderType` only mentions 0 and 2; the shared `ORDER_TYPE` object still defines 1 and 3.
 - Shallow `dist/*.d.ts` grep did not list `hidekiTestnet`, `listPerpMarkets`, `getMaxPerpOrderSize`, `placePerpOrder`, `getPerpVoucherEligibility`, `claimPerpVoucher`, `getPerpSystemConfig`, or `listPerpOrderRejections`. They are present in subpaths / past the `head -200` cut. Not absent from the package.
 - `tsconfig.json` gained `allowImportingTsExtensions` and `noEmit`. Without them, `tsc` rejects the backlog's `.ts` import specifiers (`TS5097`).
+
+## Indexer deviations
+Live GraphQL `2026-10-27` against `https://hideki-dev.smk.somnia.host/v1/graphql`. The TASK-3.1 queries ran without a column error.
+
+- `getMarketRow('ETH')` returned `baseSymbol=ETH`, `markPrice=2308975887405703000000` (raw 18-decimal quote per whole base, about 2308.98), `fundingRate=100000000000000`.
+- `getLatestFundingUpdate` returned `timestamp=1793092758`, `fundingRate=100000000000000`.
+- `fundingAprFromRate` is specified as `Number(rate) * 3 * 365`. On that raw integer it prints `10950000000000000000.00`, not a percent. The helper was left unchanged. If the raw rate is 1e18-scaled, `1e14/1e18 = 0.0001` and `0.0001 * 3 * 365 = 0.1095` (10.95% APR). That scale is a hypothesis, not confirmed against an SDK type. Signals must not treat the raw helper output as a human APR until the scale is verified.
