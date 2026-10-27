@@ -30,7 +30,7 @@
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
-  * Linked-bot mode (`docs/wallet-setup.md`): bot `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has gas and 0 perps equity. Owner `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6` has 2000 USDso and can place. Voucher claim for the bot did not broadcast (`0x3e31dcc2`).
+  * `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` checked 2026-10-27. It is the login burner, not the owner. Tokyo balance 50 STT, perps equity 0, `limitedBy collateral`. Its key was not written to `.env` or git.
 * **Current Blockers/Bugs:** TASK-9.2 has no five explorer hashes. Bot signer margin is 0 (`placeable false`, `limitedBy collateral`). Owner has 2000 USDso and is placeable, and that private key is not in `.env`. `placePerpOrder` cannot target the owner. `.env` `DRY_RUN=true`. Remote is private `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission (TASK-10.3) still expects a public repo.
 
 ---

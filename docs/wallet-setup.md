@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 9 probes are in `feedback/P01`–`P11`. No order transaction was broadcast. Bot margin is still 0 (`limitedBy collateral`). Voucher claim simulated and reverted `0x3e31dcc2` even though eligibility said 1000 USDso. Owner 2000 USDso is placeable and this repo cannot sign for it. Details: `docs/EVIDENCE.md`. `.env` `DRY_RUN=true`. Next hash-bearing orders need a signer for the funded account. Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` is the login burner, not `OWNER_ADDRESS`. It has 50 STT on Tokyo and 0 perps equity. The 2000 USDso still sits on `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`, and this repo cannot sign for that account. `.env` `DRY_RUN=true`. No private key from chat was written into the repo.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 
@@ -10,7 +10,7 @@ All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only i
 |---|---|---|
 | Bot EOA (MetaMask, linked in app) | `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` | 5 STT gas (auto-sent by app at link time) |
 | Trading wallet (OWNER_ADDRESS, linked in dreamDEX app) | `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6` | 35.44 STT; USDso margin visible in app |
-| Login burner EOA | `0xFe…690A` (keep private) | STT on Shannon 50312 only — not used for perps |
+| Login burner EOA | `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` | 50 STT on Tokyo 50383. Perps equity 0. `placeable false`, `limitedBy collateral`. Not the funded trading wallet. |
 | dreamDEX app signing key | `0x22…4574` | Pays gas for app-level actions |
 
 ## Mode: linked-bot (not voucher/own-account)

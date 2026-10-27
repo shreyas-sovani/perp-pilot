@@ -25,6 +25,8 @@ An on-tick minimum bid (`price` aligned to tick `1e16`, `qty` = `minQuantity`) w
 
 Reports are in `feedback/P01` … `feedback/P11`. They carry the revert string or the read. They do not carry order transaction hashes, because those calls reverted in simulation.
 
+Checked `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` on 2026-10-27: 50 STT on Tokyo, perps equity 0, `placeable false`, `limitedBy collateral`. It is not `OWNER_ADDRESS`. The funded signer is still missing.
+
 ## What would unblock five explorer rows
 
-A key that can sign for the account which holds the 2000 USDso, or a claim that actually credits the bot signer. Until one of those is true, this file cannot list five ETH-PERP transaction hashes.
+The private key for `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`, which already has 2000 USDso and is placeable. A claim that credits the bot signer would also work. The login burner above does not.
