@@ -279,7 +279,8 @@ All of these exist in 0.32.1:
 - Shallow `dist/*.d.ts` grep did not list `hidekiTestnet`, `listPerpMarkets`, `getMaxPerpOrderSize`, `placePerpOrder`, `getPerpVoucherEligibility`, `claimPerpVoucher`, `getPerpSystemConfig`, or `listPerpOrderRejections`. They are present in subpaths / past the `head -200` cut. Not absent from the package.
 - `tsconfig.json` gained `allowImportingTsExtensions` and `noEmit`. Without them, `tsc` rejects the backlog's `.ts` import specifiers (`TS5097`).
 - `placePerpOrder` returns `PlaceOrderResult` (`hash`, `receipt`, optional `orderId`, `fills`). There is no `client.waitForTransaction`. `src/agents/execution.ts` reads the receipt off the result. `orderType` maps `GTC→ORDER_TYPE.LIMIT`, `IOC→MARKET` (2), `FOK→FILL_OR_KILL`, `ALO→POST_ONLY`. Gas passed as `GAS_LIMIT`.
-- `Trader.placePerpOrder` has no account / on-behalf-of field (`PlacePerpOrderParams` is pool, isBid, price, quantity, orderType, gas). Doctor on 2026-10-27: owner equity 2000 USDso, bot equity 0. A signer-only order does not spend the owner balance.
+- `Trader.placePerpOrder` has no account / on-behalf-of field (`PlacePerpOrderParams` is pool, isBid, price, quantity, orderType, gas). Doctor on 2026-10-27: owner equity 2000 USDso and `placeable true` (~17.03 base). Bot equity 0, `placeable false`, `limitedBy collateral`. A signer-only order does not spend the owner balance.
+- `claim()` on 2026-10-27: eligibility said the bot could claim 1000 USDso. The simulated call reverted with data `0x3e31dcc2` and no `errorName`. That selector is not in `contractErrorsAbi`. Nothing was broadcast.
 - Orders table columns `symbol` and `side` are `NOT NULL`. The draft INSERT omitted them. `record()` writes them plus `txHash` / `rejectReason` on the first insert.
 
 ## Indexer deviations

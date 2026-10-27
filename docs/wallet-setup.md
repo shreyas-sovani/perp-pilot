@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 8 feedback harness is in. Three doc reports are committed under `feedback/` (P-12 network naming, P-13 REST vs perps, P-14 bot-kit `^0.31.0` pin). Chain probes P-01..P-11 exist and do not broadcast unless `RUN_CHAIN_PROBES=1`. `DRY_RUN=true`. Owner margin 2000 USDso. Next is Phase 9 (run chain probes, then the live evidence pass). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 9 probes are in `feedback/P01`–`P11`. No order transaction was broadcast. Bot margin is still 0 (`limitedBy collateral`). Voucher claim simulated and reverted `0x3e31dcc2` even though eligibility said 1000 USDso. Owner 2000 USDso is placeable and this repo cannot sign for it. Details: `docs/EVIDENCE.md`. `.env` `DRY_RUN=true`. Next hash-bearing orders need a signer for the funded account. Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 

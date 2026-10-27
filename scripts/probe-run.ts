@@ -33,3 +33,4 @@ for (const [id, p] of Object.entries(PROBES)) {
     console.log('PROBE ERROR (this is itself evidence):', String((e as Error).message).slice(0, 200));
   }
 }
+process.exit(0);

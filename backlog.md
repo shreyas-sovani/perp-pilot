@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 9 — Live evidence (not started)
-* **Last Completed Task:** TASK-8.3
+* **Current Phase:** Phase 9 — live hashes blocked
+* **Last Completed Task:** TASK-9.1
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -22,14 +22,16 @@
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
   * Phase 5 verified 2026-10-27: `npm run typecheck` 0, `npm test` 16/16 (signals 7, risk 5, guard 4). Dry-run execute printed `REJECTED DRY_RUN_BLOCKED` and did not broadcast. Copilot with blank key printed `open_short rule`. Orchestrator ran 25s, 0 `tick.error`, 12 `market.snapshot` lines in `runs/`.
-  * Phase 8 2026-10-27: feedback harness renders bounty markdown. `npm test` 17/17. Doc probes committed: `feedback/P12-tokyo-hideki-shannon-network-naming-and-faucet-gap.md`, `feedback/P13-docs-imply-rest-for-perps-but-http-api-is-spot-only.md`, `feedback/P14-bot-kit-perp-core-pins-caret-0-31-never-gets-0-32.md`. P-14 quote checked live: bot-kit `perp-core` pins `"@somnia-chain/markets-sdk": "^0.31.0"`. Chain probes P-01..P-11 are implemented and gated. They throw unless `RUN_CHAIN_PROBES=1`. Not broadcast in this phase.
+  * Phase 8 harness is in. Doc probes P-12, P-13, P-14 are committed. P-14 pin checked live: `"@somnia-chain/markets-sdk": "^0.31.0"`.
+  * Phase 9 probes 2026-10-27: `feedback/P01`–`P11` written under `RUN_CHAIN_PROBES=1`. IOC under the touch reverted `ImmediateOrCancelNoFill()`. Off-tick price reverted `InvalidPrice`. 6-decimal qty reverted `InvalidQuantity`, not `InsufficientCollateral`. ZEC `limitedBy collateral`. Bot ETH max size 0, `limitedBy collateral`. Indexer mark stayed flat for 5 minutes while the chain mark moved (max abs lag about 2.46 USDso). `SDK close()` left `priceable` true.
+  * Claim did not broadcast. Eligibility said 1000 USDso. `claim()` `eth_call` reverted data `0x3e31dcc2`, name absent from the SDK error ABI. `docs/EVIDENCE.md`.
   * Local `state.db` kv `equityUsdso` and `anchor:2026-10-27` set to `2000` from the owner equity read so the risk kernel stops vetoing on a zero anchor. Funding APR helper is still unscaled, so funding-carry still wants a short.
   * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
-  * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
-* **Current Blockers/Bugs:** None. Remote is private `https://github.com/shreyas-sovani/perp-pilot` (user override of the public `dreamdex-perps-pilot` name in TASK-0.6). Bounty submission (TASK-10.3) still expects a public repo before the portal deadline.
+  * Linked-bot mode (`docs/wallet-setup.md`): bot `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has gas and 0 perps equity. Owner `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6` has 2000 USDso and can place. Voucher claim for the bot did not broadcast (`0x3e31dcc2`).
+* **Current Blockers/Bugs:** TASK-9.2 has no five explorer hashes. Bot signer margin is 0 (`placeable false`, `limitedBy collateral`). Owner has 2000 USDso and is placeable, and that private key is not in `.env`. `placePerpOrder` cannot target the owner. `.env` `DRY_RUN=true`. Remote is private `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission (TASK-10.3) still expects a public repo.
 
 ---
 
@@ -1350,7 +1352,7 @@
 
 ### Phase 9: Live Evidence Run (MVP proof)
 
-- [ ] **TASK-9.1: Run chain probes P-01…P-11 and render reports.**
+- [x] **TASK-9.1: Run chain probes P-01…P-11 and render reports.**
   * *Objective:* Convert the stress-test matrix into paid-feedback files with on-chain evidence.
   * *Input/Dependencies:* TASK-6.2 (voucher claimed), TASK-8.2.
   * *Exact Action:* Run in this order, one at a time, inspecting output: `npm run probe -- --only P-04`, then `P-02`, `P-01`, `P-06`, `P-08`, `P-05`, `P-03`, `P-11`, `P-07`, `P-09`, `P-10`. After each: confirm a new `feedback/P*.md` exists with a tx hash or a recorded error string. If a probe legitimately shows NO bug (behavior matches docs), set `observedSeverity` accordingly and write actual="matches documented behavior — recorded for coverage" (do not fabricate findings).

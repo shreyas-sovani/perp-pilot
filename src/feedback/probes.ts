@@ -25,6 +25,12 @@ export interface ProbeSpec {
   run: () => Promise<ProbeResult>;
 }
 
+function alignDown(price: bigint, tick: bigint): bigint {
+  if (tick <= 1n) return price;
+  const n = price - (price % tick);
+  return n > 0n ? n : tick;
+}
+
 const ORDER_TYPE_FOR = {
   GTC: ORDER_TYPE.LIMIT,
   IOC: ORDER_TYPE.MARKET,
@@ -102,7 +108,8 @@ async function p03(): Promise<ProbeResult> {
   const row = await requireMarket(markets, cfg.SYMBOL);
   const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
   if (!health.priceable) return { steps: ['Need a fresh mark.'], expected: 'IOC revert 0xd48c4403', actual: 'mark not priceable', evidence: ['priceable:false'] };
-  const price = health.markPrice * 95n / 100n;
+  const tick = BigInt(row.tickSize);
+  const price = alignDown(health.markPrice * 95n / 100n, tick);
   const cap = await placeAndCapture({ isBid: true, priceRaw: price, qtyRaw: BigInt(row.minQuantity), tif: 'IOC' });
   return {
     steps: ['Place an IOC bid 5% below the live mark.', 'SDK 0.32.1 has no batch placePerpOrders. Record the single-order revert.'],
@@ -133,9 +140,11 @@ async function p05(): Promise<ProbeResult> {
   const quote = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price: health.markPrice });
   const evidence = [quote.priceable ? `maxQuantity ${quote.maxQuantity} limitedBy ${quote.limitedBy} placeable ${quote.placeable}` : 'priceable:false'];
   return {
-    steps: ['Read getMaxPerpOrderSize at the mark.', 'A 10-step ramp of live orders is deferred until TASK-9 so this read can be compared with fills.'],
+    steps: ['Read getMaxPerpOrderSize at an on-tick mark.', 'Ramp live size only when placeable is true.'],
     expected: 'maxQuantity equals the largest order that succeeds.',
-    actual: 'Read recorded. Ramp not sent in this invocation.',
+    actual: quote.priceable
+      ? `maxQuantity ${quote.maxQuantity} placeable ${quote.placeable} limitedBy ${quote.limitedBy}. No ramp: nothing is placeable on this account.`
+      : 'mark not priceable',
     evidence,
     observedSeverity: 'normal',
   };
@@ -145,7 +154,8 @@ async function p06(): Promise<ProbeResult> {
   const markets = initSdk();
   const row = await requireMarket(markets, cfg.SYMBOL);
   const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
-  const price = health.priceable ? health.markPrice : parseUnits('2000', 18);
+  const tick = BigInt(row.tickSize);
+  const price = health.priceable ? alignDown(health.markPrice, tick) : parseUnits('2000', 18);
   const quote = health.priceable
     ? await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price })
     : null;
