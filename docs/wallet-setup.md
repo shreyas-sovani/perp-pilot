@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` is the login burner, not `OWNER_ADDRESS`. It has 50 STT on Tokyo and 0 perps equity. The 2000 USDso still sits on `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`, and this repo cannot sign for that account. `.env` `DRY_RUN=true`. No private key from chat was written into the repo.
+Project status (2026-10-27): Six live ETH-PERP orders are confirmed on Tokyo via `placeOrderFor` for `0xf9be…80f6`. Hashes are in `docs/EVIDENCE.md`. Net position after the set was 0. `.env` `DRY_RUN=true`. Owner private key was not required and was not stored. Next is the README. Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs this repo public before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 

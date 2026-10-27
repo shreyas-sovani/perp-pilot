@@ -21,7 +21,7 @@ for (const side of ['buy', 'sell', 'buy', 'sell', 'buy', 'sell'] as const) {
     symbol: cfg.SYMBOL,
     side,
     reduceOnly: false,
-    notionalUsdso: '5',
+    notionalUsdso: '20',
     tif: 'IOC',
     limitPriceUsdso: String(mark * (side === 'buy' ? 1.003 : 0.997)),
     origin: 'probe',

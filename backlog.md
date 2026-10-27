@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 9 — live hashes blocked
-* **Last Completed Task:** TASK-9.1
+* **Current Phase:** Phase 10 — README (not started)
+* **Last Completed Task:** TASK-9.2
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -31,7 +31,7 @@
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` checked 2026-10-27. It is the login burner, not the owner. Tokyo balance 50 STT, perps equity 0, `limitedBy collateral`. Its key was not written to `.env` or git.
-* **Current Blockers/Bugs:** TASK-9.2 has no five explorer hashes. Bot signer margin is 0 (`placeable false`, `limitedBy collateral`). Owner has 2000 USDso and is placeable, and that private key is not in `.env`. `placePerpOrder` cannot target the owner. `.env` `DRY_RUN=true`. Remote is private `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission (TASK-10.3) still expects a public repo.
+* **Current Blockers/Bugs:** None for trading. Bounty submission (TASK-10.3) still needs a public GitHub repo. Remote is private `https://github.com/shreyas-sovani/perp-pilot`. `.env` `DRY_RUN=true`.
 
 ---
 
@@ -1358,7 +1358,7 @@
   * *Exact Action:* Run in this order, one at a time, inspecting output: `npm run probe -- --only P-04`, then `P-02`, `P-01`, `P-06`, `P-08`, `P-05`, `P-03`, `P-11`, `P-07`, `P-09`, `P-10`. After each: confirm a new `feedback/P*.md` exists with a tx hash or a recorded error string. If a probe legitimately shows NO bug (behavior matches docs), set `observedSeverity` accordingly and write actual="matches documented behavior — recorded for coverage" (do not fabricate findings).
   * *Verification Criteria:* `ls feedback/ | wc -l` ≥ 12; every report's Evidence section has ≥ 1 tx hash or error selector or URL citation. Commit: `git add feedback && git commit -m "feedback: chain probe reports P-01..P-11" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`.
 
-- [ ] **TASK-9.2: Execute the live MVP run and write `docs/EVIDENCE.md`.**
+- [x] **TASK-9.2: Execute the live MVP run and write `docs/EVIDENCE.md`.**
   * *Objective:* Bounty rubric "live orders on Somnia Tokyo testnet, transaction hashes".
   * *Input/Dependencies:* TASK-6.2, TASK-6.3, TASK-5.4.
   * *Exact Action:*
@@ -1390,7 +1390,7 @@
     3. Create `docs/EVIDENCE.md` with a table: `| # | time (UTC) | action | notional USDso | tx hash | explorer link | outcome |` — one row per live order (≥ 5 rows), sourced from `state.db` (`SELECT id,side,state,txHash,updatedAt FROM orders WHERE txHash IS NOT NULL ORDER BY updatedAt;`) plus the voucher claim tx from TASK-6.2.
   * *Verification Criteria:* `docs/EVIDENCE.md` exists with ≥ 5 tx rows + voucher claim row; every hash resolves on `explorer.testnet.somnia.network/tokyo`; `grep DRY_RUN .env` is back to `DRY_RUN=true`. Commit: `git add -A && git commit -m "feat: live evidence run on tokyo testnet" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`.
 
-- [ ] **TASK-9.3: Commit Phase 9.** Covered by TASK-9.2's commit; *Verification:* `git status` clean.
+- [x] **TASK-9.3: Commit Phase 9.** Covered by TASK-9.2's commit; *Verification:* `git status` clean.
 
 ### Phase 10: README, Docs & Submission
 
