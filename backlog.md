@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 6 — Scripts (doctor, claim, trade) (not started)
-* **Last Completed Task:** TASK-5.5
+* **Current Phase:** Phase 7 — Dashboard (not started)
+* **Last Completed Task:** TASK-6.4
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -22,7 +22,8 @@
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
   * Phase 5 verified 2026-10-27: `npm run typecheck` 0, `npm test` 16/16 (signals 7, risk 5, guard 4). Dry-run execute printed `REJECTED DRY_RUN_BLOCKED` and did not broadcast. Copilot with blank key printed `open_short rule`. Orchestrator ran 25s, 0 `tick.error`, 12 `market.snapshot` lines in `runs/`.
-  * Dry loop does not place orders. Unscaled `fundingApr` makes funding-carry always short. Risk then vetoes `E_CAP_LEVERAGE` because `equityUsdso` is still `0` (anchor falls back to 1). Set a real equity anchor before expecting approvals. `DRY_RUN=true` still blocks `ExecutionAgent` even if a verdict is approved.
+  * Phase 6 doctor 2026-10-27 (`docs/doctor-output.txt`): bot 5 STT, ETH-PERP priceable, mark raw `2345205861175488500000`. Owner `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6` equity **2000 USDso** Healthy, voucher `alreadyClaimed`. Bot equity **0**, voucher eligible grant 1000. Claim was not broadcast. `DRY_RUN=true`. `npm run claim` without `DRY_RUN=false` exits 1. `tsx scripts/trade.ts --live` exits 1. `tsx scripts/trade.ts --live --minutes 30` exits 1 while dry. `npm run demo:dry` logs `PerpPilot starting`.
+  * Local `state.db` kv `equityUsdso` and `anchor:2026-10-27` set to `2000` from the owner equity read so the risk kernel stops vetoing on a zero anchor. Funding APR helper is still unscaled, so funding-carry still wants a short.
   * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
@@ -1123,7 +1124,7 @@
 
 ### Phase 6: Scripts (doctor, claim, trade entry) & Voucher Funding
 
-- [ ] **TASK-6.1: Write `scripts/doctor.ts` (readiness report).**
+- [x] **TASK-6.1: Write `scripts/doctor.ts` (readiness report).**
   * *Objective:* One-table readiness: chain, gas, key, markets, mark, funding, voucher.
   * *Input/Dependencies:* TASK-4.2, TASK-3.1.
   * *Exact Action:* Create `scripts/doctor.ts` with EXACTLY:
@@ -1159,7 +1160,7 @@
     ```
   * *Verification Criteria:* `npm run doctor` exits 0 and prints ✅ on: bot wallet, gas STT (after TASK-2.6), market row, priceable. Save output to `docs/doctor-output.txt` and commit.
 
-- [ ] **TASK-6.2: Write `scripts/claim-voucher.ts` and run it (funds all trading).**
+- [x] **TASK-6.2: Write `scripts/claim-voucher.ts` and run it (funds all trading).**
   * *Objective:* Claim the one-time 1,000 paper USDso perp voucher for the bot wallet.
   * *Input/Dependencies:* TASK-6.1 (gas ✅), TASK-6.3 (`.env` DRY_RUN=false for this script only).
   * *Exact Action:*
@@ -1182,7 +1183,7 @@
     2. Temporarily set `DRY_RUN=false` **for this one invocation only**: `DRY_RUN=false npm run claim`. Revert `.env` to `DRY_RUN=true` immediately after (verify with `grep DRY_RUN .env` → `DRY_RUN=true`).
   * *Verification Criteria:* Command prints a tx hash; `DRY_RUN=false npm run claim` a second time is NOT required. Paste the tx hash into `docs/EVIDENCE.md` (created in TASK-9.2) under `## Voucher claim`. Restore `DRY_RUN=true`.
 
-- [ ] **TASK-6.3: Write `scripts/trade.ts` (entry point for dry/live runs).**
+- [x] **TASK-6.3: Write `scripts/trade.ts` (entry point for dry/live runs).**
   * *Objective:* `npm run demo:dry` (default) and `npm run demo:live -- --minutes N` with an unmissable live-mode confirmation.
   * *Input/Dependencies:* TASK-5.4.
   * *Exact Action:* Create `scripts/trade.ts` with EXACTLY:
@@ -1208,7 +1209,7 @@
     ```
   * *Verification Criteria:* `npm run demo:dry` runs the dry loop (Ctrl-C to stop); `npm run demo:live` without flags exits 1 with the guidance message.
 
-- [ ] **TASK-6.4: Commit Phase 6.** `git add -A && git commit -m "feat: doctor, voucher claim, trade entrypoint" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm run typecheck` exits 0; `grep DRY_RUN .env` shows `DRY_RUN=true`.
+- [x] **TASK-6.4: Commit Phase 6.** `git add -A && git commit -m "feat: doctor, voucher claim, trade entrypoint" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm run typecheck` exits 0; `grep DRY_RUN .env` shows `DRY_RUN=true`.
 
 ### Phase 7: Dashboard
 

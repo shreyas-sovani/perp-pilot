@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 5 is in. Execution dry-run blocks broadcasts (`REJECTED DRY_RUN_BLOCKED`). Guard tests pass. Copilot falls back to rules when `ANTHROPIC_API_KEY` is blank. Orchestrator produced 12 live snapshots in 25s with no tick errors. It does not send orders: funding APR is still the raw helper (always short) and risk vetoes `E_CAP_LEVERAGE` while equity is 0. `DRY_RUN=true`. Bot holds 5 STT. Next is Phase 6 (`doctor`, claim, trade entry). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 6 scripts are in. `npm run doctor` confirms bot gas 5 STT, ETH-PERP priceable, owner margin **2000 USDso** (Healthy), bot margin **0**. Owner voucher `alreadyClaimed`. Bot voucher eligible for 1000 paper USDso and was **not** claimed — a claim would credit the bot signer, not this owner account. `DRY_RUN=true`. Risk anchor `equityUsdso=2000` written to local `state.db` from the owner equity read. Next is Phase 7 (dashboard). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 
@@ -26,6 +26,13 @@ All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only i
 
 No public faucet exists for 50383 (Shannon faucet `testnet.somnia.network` serves 50312 only — different chain, unusable for perps). Bot gas route = in-app: Bots tab → Top up (Send STT) from the trading wallet. Real cost per perp tx: 0.0003–0.003 STT, so 5 STT ≈ thousands of transactions. Emergency fallback: Somnia Discord `#dev-chat`.
 
-## Open verification item
+## Margin (verified by `npm run doctor`, 2026-10-27)
 
-Trading wallet shows USDso in the app, but `balanceOf` on the USDso ERC20 and on MarginBank (`0x4787…1394`) returns 0 / reverts — margin is held inside dreamDEX's internal perps accounting, not as a plain ERC20 balance. Confirm actual usable margin via `npm run doctor` once the SDK layer is built (backlog TASK-6.1). If margin turns out to sit in the spot side, move it with the in-app Perps ⇆ Spot tool.
+| Account | Equity | Voucher |
+|---|---|---|
+| Bot `0x8AF6…275F` | 0 USDso, status Healthy | eligible, grant 1000 paper USDso. Not claimed. |
+| Owner `0xf9be…80f6` | 2000 USDso, status Healthy | `alreadyClaimed` |
+
+Margin sits in MarginBank account health (`getAccountHealth`), not in the USDso ERC20 `balanceOf`. The earlier zero ERC20 read was the wrong surface. Full table: `docs/doctor-output.txt`.
+
+`Trader.placePerpOrder` takes no account field. It signs as the bot. The 2000 USDso is on the owner. Live orders still need a path that spends the owner's margin (app bot-link / operator), or they will hit an empty bot account. Voucher claim stays optional and unsent.

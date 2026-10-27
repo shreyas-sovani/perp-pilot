@@ -1,0 +1,22 @@
+# doctor output
+# 2026-10-27T16:20Z (local session). Command: npm run doctor
+# DRY_RUN stayed true. No claim was broadcast.
+
+  network                      chain 50383 (Tokyo/hideki), dry_run=true
+✅ bot wallet                   0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F
+✅ gas STT                      5 STT
+✅ market ETH-PERP              pool 0xd6cb1dd58580b84d76068ac21594219ce03aeddf decimals 18/18 tick 10000000000000000
+  mark / index                 2345205861175488500000 / 2346124997109835000000
+  funding rate                 100000000000000 (raw APR helper 10950000000000000000.0)
+❌ bot margin                   equity 0 USDso status Healthy
+  bot margin voucher           eligible grant 1000
+✅ owner margin                 equity 2000 USDso status Healthy
+  owner margin voucher         ineligible alreadyClaimed
+✅ priceable                    true
+
+# Read of this output
+# - Usable margin is on OWNER_ADDRESS 0xf9beA92fee8105aC59186dAced61910Fc1DE80f6: 2000 USDso, status Healthy.
+# - Bot EOA margin is 0. Its voucher is eligible for 1000 paper USDso. Not claimed.
+#   A claim credits the bot signer, not the owner. Owner voucher is alreadyClaimed.
+# - placePerpOrder in SDK 0.32.1 has no on-behalf-of account field. Wiring live
+#   orders to the owner's 2000 USDso is still open (linked-bot app permission vs signer account).
