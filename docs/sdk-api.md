@@ -278,6 +278,8 @@ All of these exist in 0.32.1:
 - `placePerpOrder` has no `tif` argument. GTC is the default expiry (~50y) with `orderType` omitted or `ORDER_TYPE.LIMIT` (0). IOC is `ORDER_TYPE.MARKET` (2). FOK is `ORDER_TYPE.FILL_OR_KILL` (1). Post-only is `ORDER_TYPE.POST_ONLY` (3). The perp comment on `orderType` only mentions 0 and 2; the shared `ORDER_TYPE` object still defines 1 and 3.
 - Shallow `dist/*.d.ts` grep did not list `hidekiTestnet`, `listPerpMarkets`, `getMaxPerpOrderSize`, `placePerpOrder`, `getPerpVoucherEligibility`, `claimPerpVoucher`, `getPerpSystemConfig`, or `listPerpOrderRejections`. They are present in subpaths / past the `head -200` cut. Not absent from the package.
 - `tsconfig.json` gained `allowImportingTsExtensions` and `noEmit`. Without them, `tsc` rejects the backlog's `.ts` import specifiers (`TS5097`).
+- `placePerpOrder` returns `PlaceOrderResult` (`hash`, `receipt`, optional `orderId`, `fills`). There is no `client.waitForTransaction`. `src/agents/execution.ts` reads the receipt off the result. `orderType` maps `GTC→ORDER_TYPE.LIMIT`, `IOC→MARKET` (2), `FOK→FILL_OR_KILL`, `ALO→POST_ONLY`. Gas passed as `GAS_LIMIT`.
+- Orders table columns `symbol` and `side` are `NOT NULL`. The draft INSERT omitted them. `record()` writes them plus `txHash` / `rejectReason` on the first insert.
 
 ## Indexer deviations
 Live GraphQL `2026-10-27` against `https://hideki-dev.smk.somnia.host/v1/graphql`. The TASK-3.1 queries ran without a column error.

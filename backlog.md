@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 5 — Execution, guard, copilot, orchestrator (not started)
-* **Last Completed Task:** TASK-4.5
+* **Current Phase:** Phase 6 — Scripts (doctor, claim, trade) (not started)
+* **Last Completed Task:** TASK-5.5
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -21,7 +21,8 @@
   * SDK bootstrap (`src/sdk.ts`): constructor fields are `wsRpcUrl` + `indexerUrl`, not backlog `rpcUrl`. Live `requireMarket` returned `ETH 18` tick `10000000000000000`. Details in `docs/sdk-api.md`.
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
-  * Phase 4: schemas, signals (7 tests), risk kernel (5 tests), live `MarketDataAgent.snapshot` for ETH-PERP (`priceable=true`, mark raw `2308975887405703000000`, age ~143ms). `npm test` 12/12.
+  * Phase 5 verified 2026-10-27: `npm run typecheck` 0, `npm test` 16/16 (signals 7, risk 5, guard 4). Dry-run execute printed `REJECTED DRY_RUN_BLOCKED` and did not broadcast. Copilot with blank key printed `open_short rule`. Orchestrator ran 25s, 0 `tick.error`, 12 `market.snapshot` lines in `runs/`.
+  * Dry loop does not place orders. Unscaled `fundingApr` makes funding-carry always short. Risk then vetoes `E_CAP_LEVERAGE` because `equityUsdso` is still `0` (anchor falls back to 1). Set a real equity anchor before expecting approvals. `DRY_RUN=true` still blocks `ExecutionAgent` even if a verdict is approved.
   * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
@@ -840,7 +841,7 @@
 
 ### Phase 5: Execution, Guard, Copilot, Orchestrator
 
-- [ ] **TASK-5.1: Write `src/agents/execution.ts` (order state machine).**
+- [x] **TASK-5.1: Write `src/agents/execution.ts` (order state machine).**
   * *Objective:* The ONLY module that signs/broadcasts. Preflight → submit → verify. Honors DRY_RUN absolutely.
   * *Input/Dependencies:* TASK-2.3, TASK-4.1, TASK-4.4.
   * *Exact Action:* Create `src/agents/execution.ts` with EXACTLY:
@@ -923,7 +924,7 @@
     Then reconcile with `docs/sdk-api.md`: if `placePerpOrder` accepts/returns different shapes (e.g. returns `{ hash }`, or needs `orderType: ORDER_TYPE.GTC`, or separate waitFor), adapt ONLY this file to the real signature and add one line to `docs/sdk-api.md` under `## Deviations from docs`. Do not touch schemas or risk.
   * *Verification Criteria:* `npm run typecheck` exits 0. Dry-run smoke: `npx tsx -e "import {ExecutionAgent} from './src/agents/execution.ts'; import {OrderIntent} from './src/agents/schemas.ts'; const i=OrderIntent.parse({id:crypto.randomUUID(),symbol:'ETH-PERP',side:'buy',reduceOnly:false,notionalUsdso:'10',tif:'GTC',limitPriceUsdso:'3000',origin:'copilot'}); new ExecutionAgent().execute(i).then(r=>console.log(r.state,r.rejectReason))"` prints `REJECTED DRY_RUN_BLOCKED` (state machine reachable end-to-end without keys/gas).
 
-- [ ] **TASK-5.2: Write `src/agents/guard.ts` (software TP/SL — mandatory because voucher accounts cannot arm stops).**
+- [x] **TASK-5.2: Write `src/agents/guard.ts` (software TP/SL — mandatory because voucher accounts cannot arm stops).**
   * *Objective:* Independent protection loop: TP +`TP_PCT`%, SL −`SL_PCT`%, daily-loss close-all. Runs even if strategy agents halt.
   * *Input/Dependencies:* TASK-4.1, TASK-4.2, TASK-5.1.
   * *Exact Action:* Create `src/agents/guard.ts` with EXACTLY:
@@ -972,7 +973,7 @@
     ```
     `npm test` — all pass.
 
-- [ ] **TASK-5.3: Write `src/agents/copilot.ts` (LLM advisory brain + rule fallback).**
+- [x] **TASK-5.3: Write `src/agents/copilot.ts` (LLM advisory brain + rule fallback).**
   * *Objective:* Turn snapshot+signals into a zod-validated Decision. LLM is advisory ONLY; missing key or any error falls back to rules.
   * *Input/Dependencies:* TASK-4.3, TASK-4.4.
   * *Exact Action:* Create `src/agents/copilot.ts` with EXACTLY:
@@ -1023,7 +1024,7 @@
     ```
   * *Verification Criteria:* With no API key set, `npx tsx -e "import {decide} from './src/agents/copilot.ts'; import {MarketSnapshot} from './src/agents/schemas.ts'; const s=MarketSnapshot.parse({symbol:'ETH-PERP',markPrice:'3000000000000000000000',indexPrice:'0',markAgeMs:0,priceable:true,fundingRate:'0',fundingApr:'0.5',bestBid:null,bestAsk:null,tickSize:'1',lotSize:'1',minQuantity:'1',baseDecimals:18,quoteDecimals:18,ts:Date.now()}); decide(s,[{strategy:'funding-carry',side:'short',strength:0.5,rationale:'r'}],null).then(d=>console.log(d.action,d.source))"` prints `open_short rule`.
 
-- [ ] **TASK-5.4: Write `src/agents/orchestrator.ts` (tick loop).**
+- [x] **TASK-5.4: Write `src/agents/orchestrator.ts` (tick loop).**
   * *Objective:* Fixed-order agent scheduling every `TICK_MS`; publishes every envelope; halts on daily-loss; feeds dashboard.
   * *Input/Dependencies:* TASK-4.2, TASK-4.3, TASK-4.4, TASK-5.1, TASK-5.2, TASK-5.3, TASK-1.3.
   * *Exact Action:* Create `src/agents/orchestrator.ts` with EXACTLY:
@@ -1118,7 +1119,7 @@
     ```
   * *Verification Criteria:* `npm run typecheck` exits 0. Live dry smoke (needs RPC only): `timeout 30 npx tsx -e "import {Orchestrator} from './src/agents/orchestrator.ts'; const o=new Orchestrator(); o.start()"` runs without throwing for 30s and produces `runs/<today>.jsonl` with `market.snapshot` lines: `grep -c market.snapshot runs/$(date +%F).jsonl` returns ≥ 2. (On SIGTERM/timeout exit code 124 is EXPECTED — the loop is infinite.)
 
-- [ ] **TASK-5.5: Commit Phase 5.** `git add -A && git commit -m "feat: execution state machine, software guard, llm copilot, orchestrator" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm test && npm run typecheck` both exit 0.
+- [x] **TASK-5.5: Commit Phase 5.** `git add -A && git commit -m "feat: execution state machine, software guard, llm copilot, orchestrator" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm test && npm run typecheck` both exit 0.
 
 ### Phase 6: Scripts (doctor, claim, trade entry) & Voucher Funding
 

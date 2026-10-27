@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 4 agent core is in. Live ETH-PERP snapshot is priceable. `npm test` 12/12 (signals + risk). Funding APR helper still unscaled (see `docs/sdk-api.md`). `DRY_RUN=true`. Bot holds 5 STT. Next is Phase 5 (execution, guard, copilot, orchestrator). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 5 is in. Execution dry-run blocks broadcasts (`REJECTED DRY_RUN_BLOCKED`). Guard tests pass. Copilot falls back to rules when `ANTHROPIC_API_KEY` is blank. Orchestrator produced 12 live snapshots in 25s with no tick errors. It does not send orders: funding APR is still the raw helper (always short) and risk vetoes `E_CAP_LEVERAGE` while equity is 0. `DRY_RUN=true`. Bot holds 5 STT. Next is Phase 6 (`doctor`, claim, trade entry). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 
