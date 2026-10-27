@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 4 — Agent layer (not started)
-* **Last Completed Task:** TASK-3.2
+* **Current Phase:** Phase 5 — Execution, guard, copilot, orchestrator (not started)
+* **Last Completed Task:** TASK-4.5
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -21,7 +21,9 @@
   * SDK bootstrap (`src/sdk.ts`): constructor fields are `wsRpcUrl` + `indexerUrl`, not backlog `rpcUrl`. Live `requireMarket` returned `ETH 18` tick `10000000000000000`. Details in `docs/sdk-api.md`.
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
-  * Indexer queries for ETH succeeded (no column rename). `markPrice` raw `2308975887405703000000`. `fundingRate` raw `100000000000000`. `fundingAprFromRate` left as specified (`rate * 3 * 365`) and is NOT a human APR on that raw integer. Scale hypothesis only: `/1e18` then `* 3 * 365` ≈ 10.95%. See `docs/sdk-api.md` Indexer deviations. Do not trade on the unscaled helper.
+  * Phase 4: schemas, signals (7 tests), risk kernel (5 tests), live `MarketDataAgent.snapshot` for ETH-PERP (`priceable=true`, mark raw `2308975887405703000000`, age ~143ms). `npm test` 12/12.
+  * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
+  * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
@@ -539,7 +541,7 @@
 
 ### Phase 4: Agent Layer (schemas, market data, signals, risk)
 
-- [ ] **TASK-4.1: Write `src/agents/schemas.ts`.**
+- [x] **TASK-4.1: Write `src/agents/schemas.ts`.**
   * *Objective:* The deterministic inter-agent message contracts (from PRD §6.2).
   * *Input/Dependencies:* TASK-1.3.
   * *Exact Action:* Create `src/agents/schemas.ts` with EXACTLY:
@@ -610,7 +612,7 @@
     ```
   * *Verification Criteria:* `npm run typecheck` exits 0 and `npx tsx -e "import {MarketSnapshot} from './src/agents/schemas.ts'; console.log(MarketSnapshot.safeParse({}).success)"` prints `false`.
 
-- [ ] **TASK-4.2: Write `src/agents/marketData.ts`.**
+- [x] **TASK-4.2: Write `src/agents/marketData.ts`.**
   * *Objective:* Build the MarketSnapshot from SDK + indexer, with staleness tracking and an in-memory mark ring buffer for EMA.
   * *Input/Dependencies:* TASK-2.3, TASK-3.1, TASK-4.1.
   * *Exact Action:* Create `src/agents/marketData.ts` with EXACTLY:
@@ -673,7 +675,7 @@
     ```
   * *Verification Criteria:* `npx tsx -e "import {MarketDataAgent} from './src/agents/marketData.ts'; const a=new MarketDataAgent(); a.snapshot().then(s=>console.log(JSON.stringify(s,null,1).slice(0,600)))"` prints a valid snapshot with non-zero `markPrice` within 30s. If `getMaxPerpOrderSize` arg names differ per `docs/sdk-api.md`, fix only `marketData.ts`/`sdk.ts` arg mapping and note it.
 
-- [ ] **TASK-4.3: Write `src/agents/signals.ts` (pure functions + unit tests).**
+- [x] **TASK-4.3: Write `src/agents/signals.ts` (pure functions + unit tests).**
   * *Objective:* Funding-carry + EMA momentum signals; fully testable, no I/O.
   * *Input/Dependencies:* TASK-4.1.
   * *Exact Action:*
@@ -740,7 +742,7 @@
     ```
   * *Verification Criteria:* `npm test` — all tests pass.
 
-- [ ] **TASK-4.4: Write `src/agents/risk.ts` (deterministic kernel).**
+- [x] **TASK-4.4: Write `src/agents/risk.ts` (deterministic kernel).**
   * *Objective:* Absolute veto power over every OrderIntent; implements FR-5 caps.
   * *Input/Dependencies:* TASK-4.1, TASK-1.2.
   * *Exact Action:* Create `src/agents/risk.ts` with EXACTLY:
@@ -834,7 +836,7 @@
     ```
     (If vitest errors on top-level await in the last test, move the import to the file top and set `kv` inside the test body.) Run `npm test` — all pass.
 
-- [ ] **TASK-4.5: Commit Phase 4 (part 1).** `git add -A && git commit -m "feat: agent schemas, market data, signals, risk kernel + tests" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm test` passes; `npm run typecheck` exits 0.
+- [x] **TASK-4.5: Commit Phase 4 (part 1).** `git add -A && git commit -m "feat: agent schemas, market data, signals, risk kernel + tests" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `npm test` passes; `npm run typecheck` exits 0.
 
 ### Phase 5: Execution, Guard, Copilot, Orchestrator
 

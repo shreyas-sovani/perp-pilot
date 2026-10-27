@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 3 indexer client is in (`src/indexer.ts`). ETH market row and latest funding update both returned. Funding rate is a raw integer (`100000000000000`); the specified APR helper is not a human percent until scale is confirmed (`docs/sdk-api.md`). Bot holds 5 STT. `DRY_RUN=true`. Next is Phase 4 (schemas, market data, signals, risk). Private repo: `https://github.com/shreyas-sovani/perp-pilot`.
+Project status (2026-10-27): Phase 4 agent core is in. Live ETH-PERP snapshot is priceable. `npm test` 12/12 (signals + risk). Funding APR helper still unscaled (see `docs/sdk-api.md`). `DRY_RUN=true`. Bot holds 5 STT. Next is Phase 5 (execution, guard, copilot, orchestrator). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 
