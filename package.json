@@ -1,0 +1,40 @@
+{
+  "name": "dreamdex-perps-pilot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "wallet:new": "tsx scripts/wallet-new.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "claim": "tsx scripts/claim-voucher.ts",
+    "trade": "tsx scripts/trade.ts",
+    "demo:dry": "tsx scripts/trade.ts --dry",
+    "demo:live": "tsx scripts/trade.ts --live --minutes 30",
+    "probe": "tsx scripts/probe-run.ts",
+    "report": "tsx scripts/report-render.ts",
+    "report:pack": "tsx scripts/report-render.ts --all",
+    "dashboard": "tsx src/dashboard/server.ts",
+    "replay": "tsx scripts/replay.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "@somnia-chain/markets-sdk": "0.32.1",
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^16.4.5",
+    "pino": "^9.4.0",
+    "viem": "^2.21.0",
+    "ws": "^8.21.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
