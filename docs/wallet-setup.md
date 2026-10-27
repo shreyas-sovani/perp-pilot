@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 7 dashboard is up at `http://localhost:8787` (`npm run dashboard`) while `npm run demo:dry` writes the run. Screenshot: `docs/dashboard-screenshot.png`. Cross-process marks come from `runs/<date>.jsonl` because the in-process bus does not cross processes. Owner margin 2000 USDso. `DRY_RUN=true` still blocks sends (`REJECTED DRY_RUN_BLOCKED` once the 2000 equity anchor lets risk approve). Funding APR helper is still the raw integer. Next is Phase 8 (feedback harness). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 8 feedback harness is in. Three doc reports are committed under `feedback/` (P-12 network naming, P-13 REST vs perps, P-14 bot-kit `^0.31.0` pin). Chain probes P-01..P-11 exist and do not broadcast unless `RUN_CHAIN_PROBES=1`. `DRY_RUN=true`. Owner margin 2000 USDso. Next is Phase 9 (run chain probes, then the live evidence pass). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 

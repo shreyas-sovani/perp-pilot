@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 8 — Feedback harness (not started)
-* **Last Completed Task:** TASK-7.2
+* **Current Phase:** Phase 9 — Live evidence (not started)
+* **Last Completed Task:** TASK-8.3
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -22,7 +22,7 @@
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
   * Phase 5 verified 2026-10-27: `npm run typecheck` 0, `npm test` 16/16 (signals 7, risk 5, guard 4). Dry-run execute printed `REJECTED DRY_RUN_BLOCKED` and did not broadcast. Copilot with blank key printed `open_short rule`. Orchestrator ran 25s, 0 `tick.error`, 12 `market.snapshot` lines in `runs/`.
-  * Phase 7 dashboard 2026-10-27: `npm run dashboard` on port 8787, `npm run demo:dry` in parallel. `/api/state` decision seq advanced 23→26 inside 5s. Snapshot `ts` advanced. Indexer mark stayed `2348293119345175500000` across that window (panel still shows live age). Screenshot `docs/dashboard-screenshot.png`. With equity anchor 2000, risk approved shorts and execution recorded `REJECTED DRY_RUN_BLOCKED`. Bus events do not cross processes; the server tails `runs/<date>.jsonl` and serves the last `market.snapshot` on `/api/state`.
+  * Phase 8 2026-10-27: feedback harness renders bounty markdown. `npm test` 17/17. Doc probes committed: `feedback/P12-tokyo-hideki-shannon-network-naming-and-faucet-gap.md`, `feedback/P13-docs-imply-rest-for-perps-but-http-api-is-spot-only.md`, `feedback/P14-bot-kit-perp-core-pins-caret-0-31-never-gets-0-32.md`. P-14 quote checked live: bot-kit `perp-core` pins `"@somnia-chain/markets-sdk": "^0.31.0"`. Chain probes P-01..P-11 are implemented and gated. They throw unless `RUN_CHAIN_PROBES=1`. Not broadcast in this phase.
   * Local `state.db` kv `equityUsdso` and `anchor:2026-10-27` set to `2000` from the owner equity read so the risk kernel stops vetoing on a zero anchor. Funding APR helper is still unscaled, so funding-carry still wants a short.
   * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
@@ -1248,7 +1248,7 @@
 
 ### Phase 8: Feedback Harness & Probes (feedback track)
 
-- [ ] **TASK-8.1: Write `src/feedback/template.ts` (bounty-exact renderer).**
+- [x] **TASK-8.1: Write `src/feedback/template.ts` (bounty-exact renderer).**
   * *Objective:* Every report matches the bounty template character-for-character in structure.
   * *Input/Dependencies:* TASK-1.2.
   * *Exact Action:* Create `src/feedback/template.ts` with EXACTLY:
@@ -1295,7 +1295,7 @@
     ```
   * *Verification Criteria:* Unit test `tests/report.test.ts` asserts the rendered string contains `# `, `Severity: `, `Area: `, `## Steps to reproduce`, `## Expected`, `## Actual`, `## Evidence`, `## Environment` in that order (single test, `indexOf` comparisons). `npm test` passes.
 
-- [ ] **TASK-8.2: Write `scripts/probe-run.ts` (probe harness) + probe registry.**
+- [x] **TASK-8.2: Write `scripts/probe-run.ts` (probe harness) + probe registry.**
   * *Objective:* Idempotent, one-command repro for every finding class; each probe renders its `feedback/*.md`.
   * *Input/Dependencies:* TASK-8.1, TASK-2.3, TASK-5.1.
   * *Exact Action:*
@@ -1346,7 +1346,7 @@
     4. Chain-probes must be `DRY_RUN`-independent and budget ≤ 0.02 STT each: reuse a shared helper `placeAndCapture(sdk, row, {isBid, priceRaw, qtyRaw, tif})` in `src/feedback/probes.ts` that (a) `eth_call`-simulates, (b) sends with `GAS_LIMIT`, (c) captures tx hash + receipt + raw revert data, and (d) returns evidence strings `tx: <hash> (<explorer url>)`, `revert: <selector/hex>`, `raw: <truncated json>`. Keep prices far from the touch and quantities ≥ minQuantity so probes never accidentally fill.
   * *Verification Criteria:* `npm run probe -- --only P-12 && npm run probe -- --only P-13 && npm run probe -- --only P-14` produce three files in `feedback/`, each passing this checklist: contains `## Steps to reproduce`, `## Evidence` with ≥1 concrete citation (URL/selector/hash), and `Environment` block with chain ID 50383. Commit them. Chain probes P-01…P-11 run in TASK-9.x after voucher claim; each success appends its report file.
 
-- [ ] **TASK-8.3: Commit Phase 8.** `git add -A && git commit -m "feat: feedback harness + 14-probe registry + first doc probes" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `feedback/` contains ≥ 3 committed reports; `npm test` passes.
+- [x] **TASK-8.3: Commit Phase 8.** `git add -A && git commit -m "feat: feedback harness + 14-probe registry + first doc probes" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* `feedback/` contains ≥ 3 committed reports; `npm test` passes.
 
 ### Phase 9: Live Evidence Run (MVP proof)
 
