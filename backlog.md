@@ -11,12 +11,14 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 1 — Core Plumbing (not started)
-* **Last Completed Task:** TASK-0.6
+* **Current Phase:** Phase 2 — Configuration & SDK Layer (not started)
+* **Last Completed Task:** TASK-1.4
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
-  * `src/placeholder.ts` exists only because `tsc` errors with TS18003 when `include` matches zero files. Delete it in TASK-1.1 once `src/logger.ts` exists.
+  * `src/placeholder.ts` deleted in TASK-1.1 (`src/logger.ts` is the tsc input).
+  * Logger deviation: backlog redact paths `*.privateKey` / `*.apiKey` miss top-level fields. Verification printed the raw key. `src/logger.ts` also redacts top-level `privateKey`/`apiKey` and runs the pattern censor (key name + `0x`+64 hex) inside pino `hooks.logMethod`.
+  * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
 * **Current Blockers/Bugs:** None. Remote is private `https://github.com/shreyas-sovani/perp-pilot` (user override of the public `dreamdex-perps-pilot` name in TASK-0.6). Bounty submission (TASK-10.3) still expects a public repo before the portal deadline.
@@ -212,7 +214,7 @@
 
 ### Phase 1: Core Plumbing (logger, database, event bus)
 
-- [ ] **TASK-1.1: Write `src/logger.ts`.**
+- [x] **TASK-1.1: Write `src/logger.ts`.**
   * *Objective:* Redacting structured logger.
   * *Input/Dependencies:* TASK-0.4.
   * *Exact Action:* Create `src/logger.ts` with EXACTLY:
@@ -234,7 +236,7 @@
     ```
   * *Verification Criteria:* `npx tsx -e "import {log} from './src/logger.ts'; log.info({privateKey:'0x'+'a'.repeat(64)}, 'hi')"` prints `[REDACTED]` for that field.
 
-- [ ] **TASK-1.2: Write `src/db.ts` (SQLite schema + accessors).**
+- [x] **TASK-1.2: Write `src/db.ts` (SQLite schema + accessors).**
   * *Objective:* Persistent state: orders, fills, positions, decisions, findings, equity, kv.
   * *Input/Dependencies:* TASK-0.4.
   * *Exact Action:* Create `src/db.ts` with EXACTLY:
@@ -271,7 +273,7 @@
     ```
   * *Verification Criteria:* `npx tsx -e "import {db} from './src/db.ts'; console.log(db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all().map(r=>(r as any).name).sort().join(','))"` prints `decisions,equity,findings,fills,kv,orders,positions`.
 
-- [ ] **TASK-1.3: Write `src/bus.ts` (typed envelope bus + write-ahead JSONL).**
+- [x] **TASK-1.3: Write `src/bus.ts` (typed envelope bus + write-ahead JSONL).**
   * *Objective:* All inter-agent messages are zod-validated envelopes, persisted before delivery.
   * *Input/Dependencies:* TASK-0.4.
   * *Exact Action:* Create `src/bus.ts` with EXACTLY:
@@ -317,7 +319,7 @@
     ```
   * *Verification Criteria:* `npx tsx -e "import {publish,subscribe,busStartJournal} from './src/bus.ts'; busStartJournal(); subscribe('t',(e)=>console.log('got',e.kind)); publish('risk','t',{a:1},true)"` prints `got t` and creates a file under `runs/`.
 
-- [ ] **TASK-1.4: Commit Phase 1.**
+- [x] **TASK-1.4: Commit Phase 1.**
   * *Exact Action:* `git add -A && git commit -m "feat: core plumbing (logger, db, bus)" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`
   * *Verification Criteria:* `npm run typecheck` exits 0.
 
