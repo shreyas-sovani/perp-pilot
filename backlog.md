@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 7 — Dashboard (not started)
-* **Last Completed Task:** TASK-6.4
+* **Current Phase:** Phase 8 — Feedback harness (not started)
+* **Last Completed Task:** TASK-7.2
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -22,7 +22,7 @@
   * `tsconfig.json` adds `allowImportingTsExtensions` and `noEmit` so backlog `.ts` import specifiers typecheck (`TS5097` without them).
   * `npm run wallet:new` refuses overwrite. Existing bot address `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F`. Create-new path not run (key already present).
   * Phase 5 verified 2026-10-27: `npm run typecheck` 0, `npm test` 16/16 (signals 7, risk 5, guard 4). Dry-run execute printed `REJECTED DRY_RUN_BLOCKED` and did not broadcast. Copilot with blank key printed `open_short rule`. Orchestrator ran 25s, 0 `tick.error`, 12 `market.snapshot` lines in `runs/`.
-  * Phase 6 doctor 2026-10-27 (`docs/doctor-output.txt`): bot 5 STT, ETH-PERP priceable, mark raw `2345205861175488500000`. Owner `0xf9beA92fee8105aC59186dAced61910Fc1DE80f6` equity **2000 USDso** Healthy, voucher `alreadyClaimed`. Bot equity **0**, voucher eligible grant 1000. Claim was not broadcast. `DRY_RUN=true`. `npm run claim` without `DRY_RUN=false` exits 1. `tsx scripts/trade.ts --live` exits 1. `tsx scripts/trade.ts --live --minutes 30` exits 1 while dry. `npm run demo:dry` logs `PerpPilot starting`.
+  * Phase 7 dashboard 2026-10-27: `npm run dashboard` on port 8787, `npm run demo:dry` in parallel. `/api/state` decision seq advanced 23→26 inside 5s. Snapshot `ts` advanced. Indexer mark stayed `2348293119345175500000` across that window (panel still shows live age). Screenshot `docs/dashboard-screenshot.png`. With equity anchor 2000, risk approved shorts and execution recorded `REJECTED DRY_RUN_BLOCKED`. Bus events do not cross processes; the server tails `runs/<date>.jsonl` and serves the last `market.snapshot` on `/api/state`.
   * Local `state.db` kv `equityUsdso` and `anchor:2026-10-27` set to `2000` from the owner equity read so the risk kernel stops vetoing on a zero anchor. Funding APR helper is still unscaled, so funding-carry still wants a short.
   * Risk test fixtures differ from the draft: equity anchor set to 1000 (else 20 USDso vs empty equity trips `E_CAP_LEVERAGE`); over-cap case uses a full 50 USDso position (else 500 is clamped, not `E_CAP_NOTIONAL`). Tests use `DB_PATH=state.test.db` via `vitest.config.ts` so they do not write `realizedToday=-99` into `state.db`.
   * Price-band check in `risk.ts` is still the draft expression `> 0.005 * 10` (5%), while the comment says 50 bps. Left as written. Not covered by tests.
@@ -1213,7 +1213,7 @@
 
 ### Phase 7: Dashboard
 
-- [ ] **TASK-7.1: Write `src/dashboard/server.ts` + `src/dashboard/public/index.html`.**
+- [x] **TASK-7.1: Write `src/dashboard/server.ts` + `src/dashboard/public/index.html`.**
   * *Objective:* Zero-build operator dashboard (FR-8): positions, equity sparkline, funding, orders with explorer links, decision feed, findings feed.
   * *Input/Dependencies:* TASK-5.4, TASK-1.2.
   * *Exact Action:*
@@ -1244,7 +1244,7 @@
     2. Create `src/dashboard/public/index.html`: dark-theme single page, vanilla JS. Required panels (each a `<section>` with heading, populated from `/api/state` polled every 3s AND live ws envelopes): **Account** (equity, unrealized PnL, halt flag), **Market** (mark, index, funding APR, priceable badge, staleness), **Position** (qty, avg entry, TP/SL levels computed from `TP_PCT`/`SL_PCT`), **Orders** (state machine state colored, tx hash as link to `EXPLORER_TX_BASE + hash`), **Decisions** (agent, action, rationale, confidence), **Findings** (probe id, severity chip, title). No framework, no CDN, one inline `<script>`, one inline `<style>`. Layout: CSS grid 3 columns on wide, 1 on narrow.
   * *Verification Criteria:* With `npm run demo:dry` running in another terminal, `npm run dashboard` serves `http://localhost:8787`; visiting it shows live-updating Market panel with a changing mark price and Decision entries appearing within 5s of each orchestrator tick. Screenshot saved to `docs/dashboard-screenshot.png` and committed.
 
-- [ ] **TASK-7.2: Commit Phase 7.** `git add -A && git commit -m "feat: operator dashboard" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* typecheck passes.
+- [x] **TASK-7.2: Commit Phase 7.** `git add -A && git commit -m "feat: operator dashboard" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"`. *Verification:* typecheck passes.
 
 ### Phase 8: Feedback Harness & Probes (feedback track)
 

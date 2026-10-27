@@ -1,6 +1,6 @@
 # Wallet Setup (live, verified 2026-10-27)
 
-Project status (2026-10-27): Phase 6 scripts are in. `npm run doctor` confirms bot gas 5 STT, ETH-PERP priceable, owner margin **2000 USDso** (Healthy), bot margin **0**. Owner voucher `alreadyClaimed`. Bot voucher eligible for 1000 paper USDso and was **not** claimed — a claim would credit the bot signer, not this owner account. `DRY_RUN=true`. Risk anchor `equityUsdso=2000` written to local `state.db` from the owner equity read. Next is Phase 7 (dashboard). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
+Project status (2026-10-27): Phase 7 dashboard is up at `http://localhost:8787` (`npm run dashboard`) while `npm run demo:dry` writes the run. Screenshot: `docs/dashboard-screenshot.png`. Cross-process marks come from `runs/<date>.jsonl` because the in-process bus does not cross processes. Owner margin 2000 USDso. `DRY_RUN=true` still blocks sends (`REJECTED DRY_RUN_BLOCKED` once the 2000 equity anchor lets risk approve). Funding APR helper is still the raw integer. Next is Phase 8 (feedback harness). Private repo: `https://github.com/shreyas-sovani/perp-pilot`. Bounty submission still needs a public repo before the portal deadline.
 
 All on Somnia Tokyo testnet (hideki), chain ID `50383`. Private key lives only in local `.env` (gitignored).
 

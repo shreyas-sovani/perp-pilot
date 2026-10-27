@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PerpPilot</title>
+<style>
+  :root {
+    --bg: #10140f;
+    --panel: #181e16;
+    --ink: #e7efe2;
+    --muted: #8ea18a;
+    --line: #2c3828;
+    --up: #9dcc6a;
+    --down: #e07a5f;
+    --warn: #e2c16b;
+    --chip: #243024;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 16px 20px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.04em; }
+  h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  .meta { color: var(--muted); }
+  main {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    min-height: 140px;
+  }
+  .wide { grid-column: span 2; }
+  .num { font-size: 22px; }
+  .ok { color: var(--up); }
+  .bad { color: var(--down); }
+  .warn { color: var(--warn); }
+  ul { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow: auto; }
+  li { padding: 6px 0; border-top: 1px solid var(--line); }
+  a { color: var(--up); }
+  canvas { width: 100%; height: 48px; display: block; margin-top: 8px; }
+  .chip { display: inline-block; padding: 1px 6px; background: var(--chip); margin-right: 6px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .wide { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PERPPILOT</h1>
+  <div class="meta" id="head"></div>
+</header>
+<main>
+  <section><h2>Account</h2><div id="account"></div><canvas id="spark" width="420" height="48"></canvas></section>
+  <section><h2>Market</h2><div id="market"></div></section>
+  <section><h2>Position</h2><div id="position"></div></section>
+  <section class="wide"><h2>Orders</h2><ul id="orders"></ul></section>
+  <section><h2>Findings</h2><ul id="findings"></ul></section>
+  <section class="wide"><h2>Decisions</h2><ul id="decisions"></ul></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const state = { policy: { tpPct: 2, slPct: 1.5, explorer: '', dryRun: 'true', symbol: 'ETH-PERP' }, snapshot: null, equity: [], decisions: [], orders: [], findings: [], position: [], halt: null, equityUsdso: null };
+const fmt = (raw) => {
+  const n = Number(raw) / 1e18;
+  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—';
+};
+const age = (ms) => ms == null ? '—' : (ms < 1000 ? ms + 'ms' : (ms / 1000).toFixed(1) + 's');
+function paint() {
+  const p = state.policy;
+  const snap = state.snapshot && state.snapshot.payload;
+  $('head').textContent = p.symbol + '  dry_run=' + p.dryRun + '  ' + (state.halt ? 'HALT ' + state.halt : 'running');
+  const eq = state.equityUsdso ?? (state.equity[0] && state.equity[0].equityUsdso) ?? '0';
+  const upnl = state.equity[0] ? state.equity[0].unrealizedPnl : '0';
+  $('account').innerHTML = '<div class="num">' + eq + ' USDso</div><div class="meta">uPnL ' + Number(upnl).toFixed(4) + '</div><div class="meta">' + (state.halt ? 'halt ' + state.halt : 'no halt') + '</div>';
+  if (!snap) {
+    $('market').textContent = 'waiting for snapshot';
+  } else {
+    const fresh = snap.priceable && snap.markAgeMs < 10000;
+    $('market').innerHTML =
+      '<div class="num">' + fmt(snap.markPrice) + '</div>' +
+      '<div>index ' + fmt(snap.indexPrice) + '</div>' +
+      '<div>funding APR raw ' + snap.fundingApr + '</div>' +
+      '<div class="' + (fresh ? 'ok' : 'bad') + '">' + (snap.priceable ? 'priceable' : 'not priceable') + '  age ' + age(snap.markAgeMs) + '</div>';
+  }
+  const pos = state.position[0];
+  if (!pos) $('position').textContent = 'flat';
+  else {
+    const entry = Number(pos.avgEntry);
+    const tp = entry * (1 + p.tpPct / 100);
+    const sl = entry * (1 - p.slPct / 100);
+    $('position').innerHTML = 'qty ' + pos.qty + '<br>entry ' + entry + '<br>TP ' + tp.toFixed(2) + '  SL ' + sl.toFixed(2);
+  }
+  $('orders').innerHTML = state.orders.map((o) => {
+    const cls = o.state === 'CONFIRMED' ? 'ok' : o.state === 'REJECTED' ? 'bad' : 'warn';
+    const tx = o.txHash ? '<a href="' + p.explorer + o.txHash + '" target="_blank" rel="noreferrer">' + o.txHash.slice(0, 10) + '…</a>' : '';
+    return '<li><span class="chip ' + cls + '">' + esc(o.state) + '</span>' + esc(o.side) + ' ' + esc(o.symbol) + ' ' + esc(o.rejectReason || '') + ' ' + tx + '</li>';
+  }).join('') || '<li class="meta">none</li>';
+  $('decisions').innerHTML = state.decisions.map((d) => {
+    let action = d.kind, conf = '';
+    try { const j = JSON.parse(d.payloadJson); action = j.action || action; conf = j.confidence != null ? ' ' + j.confidence : ''; } catch (e) {}
+    return '<li><span class="chip">' + esc(d.agent) + '</span>' + esc(action) + esc(conf) + '<div class="meta">' + esc(d.rationale || '') + '</div></li>';
+  }).join('') || '<li class="meta">none</li>';
+  $('findings').innerHTML = state.findings.map((f) => '<li><span class="chip">' + esc(f.severity) + '</span>' + esc(f.probeId || '') + ' ' + esc(f.title) + '</li>').join('') || '<li class="meta">none</li>';
+  const c = $('spark');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const pts = state.equity.slice().reverse().map((r) => Number(r.equityUsdso)).filter((n) => Number.isFinite(n));
+  if (pts.length < 2) return;
+  const min = Math.min(...pts), max = Math.max(...pts), span = max - min || 1;
+  ctx.strokeStyle = '#9dcc6a';
+  ctx.beginPath();
+  pts.forEach((v, i) => {
+    const x = (i / (pts.length - 1)) * c.width;
+    const y = c.height - ((v - min) / span) * (c.height - 4) - 2;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+}
+function applyApi(j) {
+  state.policy = j.policy || state.policy;
+  state.snapshot = j.snapshot || state.snapshot;
+  state.equity = j.equity || [];
+  state.decisions = j.decisions || [];
+  state.orders = j.orders || [];
+  state.findings = j.findings || [];
+  state.position = j.position || [];
+  state.halt = j.halt;
+  state.equityUsdso = j.equityUsdso;
+  paint();
+}
+async function poll() {
+  try { applyApi(await (await fetch('/api/state')).json()); } catch (e) { $('head').textContent = 'api down'; }
+}
+const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+ws.onmessage = (ev) => {
+  try {
+    const e = JSON.parse(ev.data);
+    if (e.kind === 'market.snapshot') state.snapshot = e;
+    if (e.kind === 'copilot.decision') {
+      state.decisions.unshift({ agent: 'copilot', kind: 'decision', payloadJson: JSON.stringify(e.payload), rationale: e.payload && e.payload.rationale });
+      state.decisions = state.decisions.slice(0, 30);
+    }
+    paint();
+  } catch (err) {}
+};
+poll();
+setInterval(poll, 3000);
+</script>
+</body>
+</html>
