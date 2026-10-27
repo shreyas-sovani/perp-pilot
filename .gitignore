@@ -1,0 +1,7 @@
+node_modules/
+dist/
+state.db
+state.db-journal
+.env
+runs/*.jsonl
+*.tsbuildinfo
