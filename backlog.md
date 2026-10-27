@@ -11,10 +11,15 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Setup Phase
-* **Last Completed Task:** None
-* **Active Working Context / Variable State:** Initializing project.
-* **Current Blockers/Bugs:** None
+* **Current Phase:** Phase 0 — stopped at TASK-0.6 (human GitHub remote)
+* **Last Completed Task:** TASK-0.5
+* **Active Working Context / Variable State:**
+  * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
+  * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
+  * `src/placeholder.ts` exists only because `tsc` errors with TS18003 when `include` matches zero files. Delete it in TASK-1.1 once `src/logger.ts` exists.
+  * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
+  * Linked-bot mode (see `docs/wallet-setup.md`, verified 2026-10-27): bot EOA `0x8AF6577a9ea6B9372Df5fD8762D8d9789E04275F` has 5 STT; trading wallet has 35.44 STT and in-app USDso margin. Voucher claim (TASK-6.2) is optional backup. ERC20 `balanceOf` on USDso and MarginBank is not the usable margin — confirm with `npm run doctor` at TASK-6.1.
+* **Current Blockers/Bugs:** TASK-0.6 — no git remote named `origin`. Waiting for GitHub repository configuration. Do not start Phase 1 until `git remote -v` shows `origin` and `git ls-remote origin HEAD` exits 0.
 
 ---
 
@@ -59,7 +64,7 @@
 
 ### Phase 0: Environment & Architecture Setup
 
-- [ ] **TASK-0.1: Create repository skeleton and initialize git.**
+- [x] **TASK-0.1: Create repository skeleton and initialize git.**
   * *Objective:* Establish the exact directory tree and git history.
   * *Input/Dependencies:* None. Working dir: `/Users/shreyas/Desktop/somnia-perps` (contains `prd.md`, `backlog.md`, `dreamdex-docs-index.md` — leave them at root, untracked in `.gitignore` is NOT wanted; commit them).
   * *Exact Action:* Run:
@@ -71,7 +76,7 @@
     ```
   * *Verification Criteria:* `git log --oneline` shows 1 commit; `ls src src/agents scripts tests feedback docs` lists all folders.
 
-- [ ] **TASK-0.2: Write `package.json` (exact contents below).**
+- [x] **TASK-0.2: Write `package.json` (exact contents below).**
   * *Objective:* Single deterministic dependency manifest.
   * *Input/Dependencies:* TASK-0.1.
   * *Exact Action:* Create `package.json` with EXACTLY this content (then run nothing yet):
@@ -119,7 +124,7 @@
     ```
   * *Verification Criteria:* `node -e "JSON.parse(require('fs').readFileSync('package.json'))"` exits 0.
 
-- [ ] **TASK-0.3: Write `tsconfig.json` (exact contents below).**
+- [x] **TASK-0.3: Write `tsconfig.json` (exact contents below).**
   * *Objective:* Strict TS, ESM/NodeNext.
   * *Input/Dependencies:* TASK-0.2.
   * *Exact Action:* Create `tsconfig.json` with EXACTLY:
@@ -143,13 +148,13 @@
     ```
   * *Verification Criteria:* File exists and is valid JSON.
 
-- [ ] **TASK-0.4: Install dependencies.**
+- [x] **TASK-0.4: Install dependencies.**
   * *Objective:* Working node_modules with pinned SDK.
   * *Input/Dependencies:* TASK-0.2, TASK-0.3.
   * *Exact Action:* Run `npm install`. Then run `npm ls @somnia-chain/markets-sdk --depth=0` — installed version MUST be `0.32.1`.
   * *Verification Criteria:* `npm install` exit 0; `npm ls @somnia-chain/markets-sdk --depth=0` shows `0.32.1`; `npm run typecheck` exits 0 (empty project is fine).
 
-- [ ] **TASK-0.5: Write `.env.example` (exact contents below).**
+- [x] **TASK-0.5: Write `.env.example` (exact contents below).**
   * *Objective:* Canonical environment variable contract.
   * *Input/Dependencies:* TASK-0.1.
   * *Exact Action:* Create `.env.example` with EXACTLY:
