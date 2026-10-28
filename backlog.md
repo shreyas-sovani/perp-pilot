@@ -11,8 +11,8 @@
 > 8. Node 20+, npm 10+, ESM (`"type": "module"`), TypeScript strict. Run everything with `npx tsx` or compiled `node dist/`.
 
 ## 🧠 CURRENT STATE MONITOR
-* **Current Phase:** Phase 10 — README (not started)
-* **Last Completed Task:** TASK-9.2
+* **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
+* **Last Completed Task:** TASK-11.1
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -31,7 +31,17 @@
   * DB verification string in TASK-1.2 does not match `.sort()` output. Actual: `decisions,equity,fills,findings,kv,orders,positions,sqlite_sequence`. All seven app tables exist. `sqlite_sequence` comes from `AUTOINCREMENT`. `findings` sorts after `fills`. Not a blocker.
   * `.env` already matched `.env.example` and held a valid `BOT_PRIVATE_KEY` plus `OWNER_ADDRESS=0xf9beA92fee8105aC59186dAced61910Fc1DE80f6`. It was **not** overwritten by `cp .env.example .env`. `DRY_RUN=true`. `ANTHROPIC_API_KEY` empty (rule mode).
   * `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` checked 2026-10-27. It is the login burner, not the owner. Tokyo balance 50 STT, perps equity 0, `limitedBy collateral`. Its key was not written to `.env` or git.
-* **Current Blockers/Bugs:** None for trading. Bounty submission (TASK-10.3) still needs a public GitHub repo. Remote is private `https://github.com/shreyas-sovani/perp-pilot`. `.env` `DRY_RUN=true`.
+  * **Corrections established 2026-10-28 (do not re-derive):**
+    * Trading path is **linked-owner**: the bot key trades via `placeOrderFor(owner, …)`; fills, margin, and PnL land on the OWNER Perps account (bot-kit perps guide). All account reads must target `marginAccount()` = `OWNER_ADDRESS`, not the bot signer. Voucher/claim facts about the bot signer describe a different account than the one trading.
+    * **Chain mark** = `getPerpHealthSnapshot(pool).markPrice` + `priceable` (false ⇒ stale mark). **Book tops** = `getBookTopsOnchain`. IOC must be priced through the book — the touch can be gone when the tx lands (perps orders doc). GraphQL `Market.markPrice` is a lagging cross-check (observed 2.46 USDso from the chain mark for 5 min on 2026-10-27).
+    * Account truth is on-chain: `getAccountHealth`, `getPerpPosition` (signed size, + = long), `getPerpPositionAnalytics` (uPnL + accrued funding). The loop calls none; `equityUsdso` kv 2000 was a one-time manual doctor read; positions are written as notional/indexer-mark; realized PnL stays 0; daily-loss cap / leverage veto / TP/SL all aim at the local row. `realizedToday` is never written, so `E_DAILY_LOSS` can never fire.
+    * Guard bug pair: closes are sized notional `|qty × entry|` and re-converted to qty at the CURRENT price (partial close), and the positions row is never cleared after a guard close, so the guard re-fires every tick (real orders each 2s until gas/margin die). Halt is in-memory only (kv `halted` never read back).
+    * A linked key may place, cancel, and reduce — and the loop sends none of them: `cancel_all` returns immediately, close/reduce are dropped while a local position exists, and a reduce would go out with `reduceOnly: false`. SDK has `cancelOrder`/`cancelAllOrders` (verify `*For` variants in `.d.ts`).
+    * Funding scale unresolved: docs quote fractions (0.08% → 0.0008, payment = size × index × rate ÷ 8) but never state the GraphQL integer scale; live ETH value `100000000000000`. `fundingAprFromRate` multiplies the raw integer by 3 × 365 → any nonzero rate reads as a strength-1 short. Divisor must be solved from `getFundingPayments` data, not guessed.
+    * Probes P-01/P-05/P-06/P-07/P-08/P-10/P-11 never reached the documented case (details Phase 14); P-03 did. The 5% price band (comment claims 50 bps) and 630-tick EMA warmup are this repo's own rules, not docs'.
+    * Bot-account `claimPerpVoucher` simulation reverts with data `0x3e31dcc2`, errorName unset, selector absent from the SDK error ABI and unnamed in the docs errors page — reason unverified, nothing broadcast. New probe P-15.
+* **Current Blockers/Bugs:** Repo PRIVATE ⇒ feedback reports invisible to judges since 2026-10-27 — first-report-wins clock is being wasted. TASK-10.3 human step was prompted 2026-10-29 and not performed by the agent. Make the repo public and submit both tracks. Trading-truth bugs are specced in Phases 11–13. `.env` `DRY_RUN=true`.
+  * TASK-11.1 extraction (2026-10-29) lives in `docs/sdk-api.md`. `BookTop.bestBid`/`bestAsk` are decimal strings. `Trader.cancel*` / `reduceOrder` act as the signer. `*For` methods are absent. Selector match: `placeOrderFor(address,bool,uint64,uint256,uint256,uint64,uint8,uint8,address,uint96)` = `0x80054449`; `cancelOrderFor(address,uint128)` = `0xe37b444b`. No `reduceOnly` on `placePerpOrder`.
 
 ---
 
@@ -1429,3 +1439,163 @@
 - [ ] README passes the "stranger test" (TASK-10.1).
 - [ ] `.env` in repo contains NO secrets (`git grep BOT_PRIVATE_KEY=0x` returns nothing).
 - [ ] Both tracks submitted before the deadline.
+
+---
+
+# ══ CORRECTION PASS — appended 2026-10-28 ══
+
+> **SEQUENCING NOTE (amends Operating Rule 1 for Phase 10 only):**
+> 1. **FIRST:** TASK-10.3's human step — make the repo PUBLIC and submit both tracks. Reports have sat in a private repo since 2026-10-27; the first-report-wins clock is running against us.
+> 2. **THEN:** Phases 11 → 15 strictly in order.
+> 3. **LAST:** TASK-10.1 (README) and TASK-10.2 (gate) execute as TASK-15.7, because they must describe the corrected behavior.
+>
+> Canonical sources for this pass (re-open the live page before relying on any value — the docs are a living document, see `dreamdex-docs-index.md` preamble):
+> Perps developer docs <https://app.dreamdex.io/docs/developers/perps-testnet> · bot-kit perps guide <https://github.com/somnia-chain/dreamdex-bot-kit/blob/main/docs/perps.md> · perps orders <https://app.dreamdex.io/docs/trading/perps-testnet/orders> · perps funding <https://app.dreamdex.io/docs/trading/perps-testnet/funding> · perps margin & liquidations <https://app.dreamdex.io/docs/trading/perps-testnet/margin-and-liquidations> · link a bot <https://app.dreamdex.io/docs/trading/common/link-a-bot> · contract errors <https://app.dreamdex.io/docs/developers/contracts/errors> · bot-kit gotchas <https://github.com/somnia-chain/dreamdex-bot-kit/blob/main/docs/gotchas.md>
+
+## Why this pass exists (read once; never re-derive)
+
+1. **Trading is the linked-owner path.** Fills/margin/PnL land on the OWNER account; the bot signer only transacts on its behalf. Account reads that target the bot signer describe the wrong account.
+2. **The decision price has been the indexer mark, and it lags the chain mark** (observed ~2.46 USDso apart for 5 minutes). Chain mark + `priceable` come from `getPerpHealthSnapshot`; tops from `getBookTopsOnchain`; IOC must be priced through the book.
+3. **Margin/position truth is on-chain, not in SQLite.** `getAccountHealth`, `getPerpPosition` (signed size, positive = long), `getPerpPositionAnalytics` (uPnL + accrued funding) exist and are never called. Equity is a manually-injected kv constant; realized PnL is never computed; the daily-loss cap reads a key nothing writes.
+4. **Close/reduce/cancel are never sent**, though a linked key may place, cancel, and reduce, and reduce-only orders exist.
+5. **Seven probes never reached the documented case** (Phase 14 itemizes each). P-03 did.
+6. The 5%-in-code price band and the 630-tick EMA warmup are this repo's own rules — align the band to PRD FR-5 (50 bps), document the warmup honestly.
+
+---
+
+### Phase 11: Chain-Truth Market & Account State
+
+- [x] **TASK-11.1: Extract the account/position/book SDK surface into `docs/sdk-api.md`.**
+  * *Objective:* Code Phase 11–12 against the installed `.d.ts`, never against memory or chat (Operating Rule 4).
+  * *Input/Dependencies:* None. Blocks all of Phases 11–12.
+  * *Exact Action:* From `node_modules/@somnia-chain/markets-sdk` `.d.ts`, append to `docs/sdk-api.md` the exact signatures + return types + "which account does this target" for: `getPerpHealthSnapshot`, `getBookTopsOnchain`, `getAccountHealth`, `getPerpPosition`, `getPerpPositionAnalytics`, `cancelOrder`, `cancelAllOrders`, and any `*For` variants (`cancelOrderFor`, `cancelAllOrdersFor`, reduce-order entry points, `placeOrderFor` arg list). For any symbol absent from `.d.ts`: record under "Deviations" and use the nearest real symbol. Never invent.
+  * *Verification Criteria:* `docs/sdk-api.md` has one section per symbol citing its `.d.ts` path; every SDK call added in Phases 11–12 cites one of these sections.
+
+- [ ] **TASK-11.2: MarketDataAgent reads the chain mark and the book.**
+  * *Exact Action:* In `src/agents/marketData.ts`: `markPrice` + `priceable` from `getPerpHealthSnapshot(pool)` (perps dev docs: `priceable:false` = stale mark, quotes no size); `bestBid`/`bestAsk` from `getBookTopsOnchain(pool)`; keep the GraphQL `Market.markPrice` read demoted to a new `indexerMarkPrice` field + `indexerLagRaw = |chain − indexer|`; `markAgeMs` from the health-snapshot read time. Extend `MarketSnapshot` zod schema with the new fields (defaults so old journal lines still parse). Keep the `getMaxPerpOrderSize` priceable probe only as a cross-check log line.
+  * *Verification Criteria:* Unit test with mocked SDK: `priceable:false` propagates; tops populate best bid/ask; lag computed; `npm run typecheck` 0.
+
+- [ ] **TASK-11.3: Price entries and guard exits through the book.**
+  * *Exact Action:* Entry limit price = `ask × (1 + ENTRY_SLIPPAGE_BPS/10⁴)` for buy, `bid × (1 − …)` for sell, from TASK-11.2 tops; fall back to chain mark ± slippage when tops are null (current behavior); guard closes price through the opposite top. Keep `alignTick`. Rationale: perps orders doc — an IOC must be priced through the book because the touch can be gone by the time the tx lands.
+  * *Verification Criteria:* New test: given mocked tops, buy limit ≥ ask and sell limit ≤ bid; existing risk tests still green.
+
+- [ ] **TASK-11.4: Account-truth sync — equity, position, PnL, funding accrual.**
+  * *Exact Action:* In the Orchestrator tick (no faster than every 30s): `getAccountHealth(marginBank, marginAccount())` → `kv equityUsdso` (replaces the manual 2000); `getPerpPosition(…)` on the OWNER account → upsert the positions row (signed qty, positive = long; entry from the read); `getPerpPositionAnalytics(…)` → `unrealizedPnl` + accrued funding into the equity row and dashboard payload. **Delete** the local "position = notional / mark" write (`src/agents/orchestrator.ts:76-84`). Maintain `realized:<dayKey>` in kv from the analytics realized-PnL day delta; migrate `risk.ts`/`guard.ts` reads from `realizedToday` to `realized:<dayKey>`. `dailyAnchorUsdso` now anchors on synced equity — fresh clone works with no kv surgery.
+  * *Verification Criteria:* Unit tests with mocked SDK assert kv + rows; on a live doctor run, `kv equityUsdso` equals the printed owner equity; with a position open, equity rows show non-constant `unrealizedPnl`.
+
+- [ ] **TASK-11.5: Guard correctness — sizing, re-fire, durability, loss cap.**
+  * *Exact Action:*
+    1. Size closes by quantity: add optional `qtyBase: string` (human base units) to `OrderIntent`; `ExecutionAgent` uses it directly (lot/min aligned) when present; `guardIntents` sets it from the on-chain position qty from TASK-11.4 (notional stays as display = qty × chain mark).
+    2. After a guard order CONFIRMED: re-read `getPerpPosition`; flat ⇒ delete the positions row + update `realized:<dayKey>`; not flat ⇒ refresh the row (partial close truth).
+    3. Re-fire suppression: skip new guard intents while any guard-origin order for the symbol sits in PREFLIGHT/SIGNED/SUBMITTED/MINED; 3-tick cooldown after any guard terminal state.
+    4. Halt durability: `Orchestrator` constructor reads `kv 'halted'` into `this.halted` (kv write already exists).
+    5. Daily-loss close-all: guard also fires when `realized:<dayKey>` ≤ −`DAILY_LOSS_CAP_USDSO` (data now real from TASK-11.4), not just on TP/SL.
+  * *Verification Criteria:* `tests/guard.test.ts` gains: (a) CONFIRMED close + flat chain read ⇒ NO second intent next tick (kills the re-fire loop); (b) close qty == position qty regardless of mark-vs-entry distance (kills the partial close); (c) halt survives simulated restart; (d) loss-cap breach ⇒ close intent fires.
+
+### Phase 12: Action Coverage (close/reduce/cancel) + Auto-Reporter
+
+- [ ] **TASK-12.1: ExecutionAgent learns cancel and reduce.**
+  * *Exact Action:* Wire per TASK-11.1 extraction, owner/linked semantics per the bot-kit perps guide: `cancelAllOrders*` / `cancelOrderFor(orderId)`; reduce path — if the SDK exposes a reduce-only entry (perps orders doc: reduce-only orders can only shrink a position), use it; otherwise send an opposite-side order capped at |position qty| and record the deviation in `docs/sdk-api.md`. Reuse the ExecutionReport states; record cancel results in the orders table.
+  * *Verification Criteria:* Dry-run unit tests with a mocked trader for cancel-all, cancel-one, reduce; live proof deferred to TASK-15.6.
+
+- [ ] **TASK-12.2: Orchestrator honors close / reduce / cancel_all.**
+  * *Exact Action:* Replace the dead early-return at `src/agents/orchestrator.ts:60-63`. Mapping: `close` ⇒ full-qty reduce intent (origin `copilot`, `reduceOnly: true`); `reduce` ⇒ reduce intent sized `min(decision.notionalUsdso, |position notional|)`; `cancel_all` ⇒ `execution.cancelAll()` then continue the tick. Every intent still passes `evaluate()` — no bypass of the kernel.
+  * *Verification Criteria:* Tests for each decision→intent mapping incl. the veto path; copilot prompt (`src/agents/copilot.ts` SYSTEM) unchanged — actions now real.
+
+- [ ] **TASK-12.3: Minimal ReporterAgent — auto-capture to findings.**
+  * *Exact Action:* New `src/agents/reporter.ts` subscribing to the bus: `execution.report` with state REJECTED, `orchestrator tick.error`, risk verdicts containing `E_STALE_MARK`/`E_MARK_NOT_PRICEABLE`, and `guard.trigger` → insert a findings row (id = `auto-<sha1(kind+reason+day)[12]>`) and render `feedback/auto-<slug>.md` via `template.ts`, status `open`, idempotent by id. This delivers the PRD §2.3 claim "every MVP incident auto-generates a feedback report."
+  * *Verification Criteria:* Unit test: publish fake rejection envelope ⇒ exactly one findings row + one file; republish ⇒ no duplicate.
+
+- [ ] **TASK-12.4: Copilot hardening.**
+  * *Exact Action:* Anthropic call gets `timeout: 4_000, maxRetries: 0` (PRD §10 promises a timeout; a hang stalls the guard too — same tick loop). Pin `@anthropic-ai/sdk` to the installed version in `package.json` (currently `"latest"`).
+  * *Verification Criteria:* Test with a mocked slow SDK asserts rule fallback returns < 5 s; `npm ls @anthropic-ai/sdk` shows the pinned version.
+
+### Phase 13: Funding Scale + Rule-Signal Fixes
+
+- [ ] **TASK-13.1: Establish the funding-rate scale empirically, then fix `fundingAprFromRate`.**
+  * *Exact Action:* The funding doc quotes rates as fractions (0.08% → 0.0008; payment = size × index × rate ÷ 8) but never states the GraphQL field's integer scale; the live ETH value observed is `100000000000000`. Do NOT guess the divisor. Solve it from data: query `getFundingPayments(owner)` (SDK) and `FundingPayment` (indexer), take size + indexPrice from the same period, solve for rate; cross-check `getPerpSystemConfig` for any precision/scale field. Record the verified divisor + solving evidence in `docs/sdk-api.md`; fix `fundingAprFromRate` (`src/indexer.ts:58`); add a unit test using the observed `1e14` sample; dashboard renders human APR %. If the docs genuinely omit the scale, render that as a new bounty-format docs finding (it is one).
+  * *Verification Criteria:* Test green on the observed sample; APR sane on a live read; divisor documented with evidence.
+
+- [ ] **TASK-13.2: Price band to 50 bps (PRD FR-5).**
+  * *Exact Action:* `src/agents/risk.ts:47` — `0.005 * 10` → `0.005`; tests on both sides of the band; comment notes this is a repo-own rule per PRD, not a docs rule.
+  * *Verification Criteria:* New test red on old code, green on new.
+
+- [ ] **TASK-13.3: EMA on 1-minute candles.**
+  * *Exact Action:* Bucket `markHistory` ticks into 1-minute closes; EMA(9)/EMA(21) over closes (PRD FR-7 wording becomes true); warmup = 21 minutes, surfaced in the dashboard ("warming up x/21 min") and README. Pure bucketing function + test.
+  * *Verification Criteria:* Bucketing unit test; signal flat until 21 closes, then direction follows the spread.
+
+- [ ] **TASK-13.4: Open-order accounting.**
+  * *Exact Action:* `openOrderCount` counts orders in PREFLIGHT/SIGNED/SUBMITTED/MINED plus CONFIRMED-with-`onChainOrderId` not yet cancelled/filled (add reconciliation from TASK-11.4 / cancels from TASK-12.1 — a `clearedAt` column is fine); drop the arbitrary 1-hour window.
+  * *Verification Criteria:* Test: resting GTC in CONFIRMED counts against `MAX_OPEN_ORDERS`.
+
+### Phase 14: Probe Fidelity (feedback track — reach the documented case, or report the true gap)
+
+Standing rules for this phase: every report states which documented case it reached and which it did not; never overwrite stronger evidence with weaker; prior observed results stay as legs of the report. All chain legs run under `RUN_CHAIN_PROBES=1` with owner gas budget ≈ 0.01–0.05 STT total.
+
+- [ ] **TASK-14.1: P-01 two legs.**
+  * *Exact Action:* Leg A (already observed, keep): 6-decimal quantity → `InvalidQuantity(10000, 100000000000000)` — the docs' `InsufficientCollateral()` claim is NOT what a decimal bug produces; that divergence is the finding. Leg B (new): correctly 18-dec, tick/lot-aligned, over-margin quantity via the owner `placeOrderFor` path → record whether `0x3a23d825` is reachable and what the owner path actually reverts with (observed once as `ERC20: transfer amount exceeds balance`).
+  * *Verification Criteria:* Report has both legs with selector evidence; `actual` no longer overclaims.
+
+- [ ] **TASK-14.2: P-05 + P-08 funded-account rerun.**
+  * *Exact Action:* Rerun both with `account: OWNER_ADDRESS` (funded 2000 USDso), not the unfunded bot signer (which only yields `maxQuantity 0, limitedBy collateral`). P-05: ramp real orders toward `maxQuantity` and compare quoted vs accepted size. P-08: document the `limitedBy` precedence — `collateral` masks `voucherBlocked` until credit exists in the account; the bot claim needed for credit reverts (`0x3e31dcc2`, see P-15), so the documented case is unreachable on this setup — that masking behavior, with evidence, is the finding.
+  * *Verification Criteria:* Both reports carry owner-account evidence lines; P-08 states the precedence explicitly.
+
+- [ ] **TASK-14.3: P-06 allowance/cap leg.**
+  * *Exact Action:* Pre-establish the spending path per the bot-kit perps guide (or place via owner `placeOrderFor`), read the per-account cap via `getMaxPerpOrderSize().maxPositionSize` on the funded owner when priceable, submit above it → capture whether `0x714b36d6` is reached. Keep the observed `ERC20: insufficient allowance` as an evidence leg (allowance UX gap is itself reportable).
+  * *Verification Criteria:* Report shows the cap read + the actual revert for the over-cap attempt.
+
+- [ ] **TASK-14.4: P-07 correct contract targeting.**
+  * *Exact Action:* `stopRegistry` lives on the market row — ETH-PERP's is null, and that absence is itself the finding (no stop path on the allowlisted default market via the SDK row). `OperatorPermissionsRegistry` is a different contract; verify any address (incl. `0x6B2FbfeD328FF5F20C0BE7D3C3437613aFFE8D3a`) against the live contract-addresses page <https://app.dreamdex.io/docs/developers/contracts/contract-addresses> before citing — never trust a chat-supplied address unverified. Attempt `placePerpStopOrder` only where a registry exists AND the account is USDso-only.
+  * *Verification Criteria:* Report distinguishes stopRegistry vs operator registry; every address cited has its docs-page source.
+
+- [ ] **TASK-14.5: P-10 redesign around real staleness.**
+  * *Exact Action:* The docs tie `priceable:false` to a stale MARK, not to client `close()` (P-10's original design was wrong; `close()` leaving priceable true is now a secondary observation leg, not the case). New leg: sample `getPerpHealthSnapshot` across a funding-window boundary / quiet period and capture a real `priceable:false` occurrence + recovery time.
+  * *Verification Criteria:* Report's `expected` matches the docs semantics; evidence line contains either a captured `priceable:false` or a dated statement that none occurred during N minutes of sampling.
+
+- [ ] **TASK-14.6: P-11 with a real order id.**
+  * *Exact Action:* Place a resting GTC off-touch via the owner path → capture `onChainOrderId` → double-cancel → then fill it with a crossing IOC and cancel again. Record `IncorrectSender` vs the documented idempotency semantics for each leg.
+  * *Verification Criteria:* Evidence lines carry the real order id + tx hashes; `actual` speaks to idempotency, not to a missing id.
+
+- [ ] **TASK-14.7: New probe P-15 — unnamed claim revert selector.**
+  * *Exact Action:* Probe reproducing the bot-account `claimPerpVoucher` result: eligibility true (grant 1000), simulation reverts with data `0x3e31dcc2`, `errorName` unset, selector absent from the installed SDK error ABI and unnamed at the contract-errors page. eth_call only, no broadcast. Render + commit.
+  * *Verification Criteria:* `feedback/P15-*.md` in bounty format with the eligibility read + revert data + SDK version.
+
+- [ ] **TASK-14.8: Re-render, upsert, refresh evidence.**
+  * *Exact Action:* `RUN_CHAIN_PROBES=1 npm run probe` per updated probe; regenerate reports; findings upsert; update the "Chain probes" section of `docs/EVIDENCE.md` to a per-probe reached / not-reached table.
+  * *Verification Criteria:* All reports regenerated; EVIDENCE table matches findings rows.
+
+### Phase 15: Harness Completion, Dashboard, Live Re-Proof, README
+
+- [ ] **TASK-15.1: `scripts/report-render.ts` (FR-9 — script is referenced by package.json but missing).**
+  * *Exact Action:* `npm run report -- <slug|id>` re-renders one report from its findings row; `report:pack` (`--all`) regenerates every reported finding and prints the run summary: orders by state, tx-hash list with explorer links, equity first/last, realized PnL for the day.
+  * *Verification Criteria:* Both npm scripts run clean on the existing DB; summary output matches a DB query.
+
+- [ ] **TASK-15.2: `scripts/replay.ts` (FR-12 — also missing).**
+  * *Exact Action:* Read a `runs/<date>.jsonl`, re-run the pure decision path (signals + `evaluate`) over recorded snapshots, diff simulated vs recorded decisions, print a summary. Refuse to start if any line matches `/0x[0-9a-fA-F]{64}/` with a key-shaped field name; assert no signing material ever parsed.
+  * *Verification Criteria:* Runs on `runs/2026-10-27.jsonl` and prints a diff; test with a fixture journal (including one poisoned line → refusal).
+
+- [ ] **TASK-15.3: Dashboard fixes.**
+  * *Exact Action:* Bind `127.0.0.1` explicitly (`server.listen(PORT, '127.0.0.1')` — PRD FR-8 says localhost); short positions show mirrored TP/SL lines; funding APR as human %; sparkline uses the synced equity series (now non-constant via TASK-11.4); findings rows link their report files.
+  * *Verification Criteria:* `curl` from a non-loopback interface fails; long and short TP/SL both render correctly given fixture positions.
+
+- [ ] **TASK-15.4: Logger stops redacting tx hashes.**
+  * *Exact Action:* The generic `/0x[0-9a-fA-F]{64}/` string redaction (`src/logger.ts:2`) matches tx hashes — evidence strings become `[REDACTED]`. Narrow it: redact by key NAME (already covered) plus the 64-hex pattern only for values under keys matching `/private|key|secret|mnemonic/i`. Verify txHash survives.
+  * *Verification Criteria:* Test: log an object `{ txHash: '0x' + 'a'.repeat(64) }` → output contains the hash; `{ privateKey: '0x' + 'a'.repeat(64) }` → redacted.
+
+- [ ] **TASK-15.5: `alignLot` round-UP to a valid size.**
+  * *Exact Action:* `src/agents/execution.ts:42-47` — when qty rounds below `minQty` (minQty not a lot multiple, e.g. min 15 / lot 10 currently yields 10 → wrongly rejected), round UP to the smallest lot multiple ≥ minQty. Test with minQty=15, lot=10 → 20.
+  * *Verification Criteria:* New test green; no regression in existing execution tests.
+
+- [ ] **TASK-15.6: [HUMAN_STEP] Live re-proof through the corrected loop.**
+  * *Exact Action:* With `DRY_RUN=false`, `npm run demo:live -- --minutes ≤30`: open a position (rule mode fine), let the guard close it (or close via copilot action), then verify via `getPerpPosition` that the account is FLAT, the halt persisted, and no further orders fired after the close. Append the tx hashes to `docs/EVIDENCE.md`. This run is the demo-video source. Confirm with the human before broadcasting.
+  * *Verification Criteria:* EVIDENCE.md gains the run; post-close order count from the DB is zero; `getPerpPosition` reads zero.
+
+- [ ] **TASK-15.7: Execute TASK-10.1 (README) and TASK-10.2 (gate) now, against corrected behavior.**
+  * *Exact Action:* Write the README per TASK-10.1 using the corrected facts (chain-mark pricing, on-chain account truth, real funding APR, warmup window, probe reached/not-reached index, new EVIDENCE run); refresh `docs/dashboard-screenshot.png`; run the full TASK-10.2 gate; push.
+  * *Verification Criteria:* TASK-10.1/10.2 verification criteria met; `git status` clean; pushed to the now-public repo.
+
+### Definition of Done — additions from the correction pass
+- [ ] Guard close leaves the chain position flat (`getPerpPosition` = 0) and no further orders fire after the halt.
+- [ ] Fresh clone + funded account runs `demo:live` with no manual kv surgery (equity synced on-chain).
+- [ ] `npm run report`, `report:pack`, `replay` all exist and run clean.
+- [ ] Every probe report states reached / not-reached against its documented case.

@@ -289,3 +289,201 @@ Live GraphQL `2026-10-27` against `https://hideki-dev.smk.somnia.host/v1/graphql
 - `getMarketRow('ETH')` returned `baseSymbol=ETH`, `markPrice=2308975887405703000000` (raw 18-decimal quote per whole base, about 2308.98), `fundingRate=100000000000000`.
 - `getLatestFundingUpdate` returned `timestamp=1793092758`, `fundingRate=100000000000000`.
 - `fundingAprFromRate` is specified as `Number(rate) * 3 * 365`. On that raw integer it prints `10950000000000000000.00`, not a percent. The helper was left unchanged. If the raw rate is 1e18-scaled, `1e14/1e18 = 0.0001` and `0.0001 * 3 * 365 = 0.1095` (10.95% APR). That scale is a hypothesis, not confirmed against an SDK type. Signals must not treat the raw helper output as a human APR until the scale is verified.
+
+## TASK-11.1 — account / position / book surface (2026-10-29)
+
+Extracted from `@somnia-chain/markets-sdk@0.32.1` `.d.ts`. Call sites in this repo are `markets.client.*` (`SomniaMarkets.client`) and `markets.trader.*`. Standalone functions in `perp/margin.d.ts`, `perp/state.d.ts`, and `orders.d.ts` take an extra trailing `PublicClient`. Account-scoped reads do not use the signer. Pass `marginAccount()` from `src/agents/execution.ts` (`OWNER_ADDRESS` when set). Cancels and reduces on `Trader` send as the trader signer (`w.fromAddress` in `src/orders.ts`), which is the bot key, not the owner.
+
+### `getPerpHealthSnapshot`
+
+`node_modules/@somnia-chain/markets-sdk/dist/somniaMarketsClient.d.ts` (client method) and `dist/perp/margin.d.ts` (standalone + `PerpHealthSnapshot`).
+
+```ts
+client.getPerpHealthSnapshot(pool: Address): Promise<PerpHealthSnapshot>
+```
+
+Account: none. This is a pool read.
+
+```ts
+type PerpHealthSnapshot =
+  | {
+      priceable: true;
+      oneBase: bigint;
+      markPrice: bigint; // raw quote per whole base
+      projectedCumulativeFunding: bigint; // 1e18-scaled, signed
+      effectiveImfBps: bigint;
+      maintenanceMarginBps: bigint;
+      closeOutMarginBps: bigint;
+    }
+  | { priceable: false };
+```
+
+`priceable: false` means a stale or zero mark. Do not substitute zeros. Backed by `tryGetHealthSnapshot`, not the reverting `getHealthSnapshot`.
+
+### `getBookTopsOnchain`
+
+`dist/somniaMarketsClient.d.ts` and `dist/orders.d.ts` (`GetBookTopsOnchainOptions`, `BookTopsOnchain`, `BookTop`).
+
+```ts
+client.getBookTopsOnchain(
+  markets: { id: string; poolAddress: Address }[],
+  opts?: { blockNumber?: bigint },
+): Promise<BookTopsOnchain>
+
+interface BookTopsOnchain {
+  blockNumber: bigint;
+  tops: Record<string, BookTop>; // key = lowercased market id; empty books omitted
+}
+type BookTop = {
+  bestBid: string | null; // raw integer as a decimal string, not bigint
+  bestAsk: string | null;
+  mid: string | null; // floored (bestBid + bestAsk) / 2; null unless both sides rest
+};
+```
+
+Account: none. Book state for the pools passed in.
+
+### `getAccountHealth`
+
+`dist/somniaMarketsClient.d.ts` and `dist/perp/margin.d.ts` (`AccountHealth`, `MarginStatus`).
+
+```ts
+client.getAccountHealth(marginBank: Address, account: Address): Promise<AccountHealth>
+
+interface AccountHealth {
+  equity: bigint; // unlockedCollateral + Σ(uPnl) − Σ(fundingOwed), signed, raw collateral
+  imReq: bigint;
+  mmReq: bigint;
+  cmReq: bigint;
+  marginStatus: "Healthy" | "MarginCall" | "PartialLiquidation" | "CloseOut";
+}
+```
+
+Account: the `account` argument. Phases 11–12 pass `marginAccount()`, not the bot signer.
+
+### `getPerpPosition`
+
+`dist/somniaMarketsClient.d.ts` and `dist/perp/state.d.ts` (`PerpPosition`, `PerpPositionRef`).
+
+```ts
+client.getPerpPosition(ref: PerpPositionRef): Promise<PerpPosition>
+
+interface PerpPositionRef {
+  marginBank: Address; // from the PerpMarket row
+  account: Address;    // position owner — marginAccount()
+  pool: Address;
+}
+interface PerpPosition {
+  size: bigint; // signed raw base; positive = long, negative = short, 0 = flat
+  avgEntryPrice: bigint;
+  entryFundingIndex: bigint; // 1e18-scaled, signed
+  lastUpdatedTimestampNs: bigint;
+}
+```
+
+Account: `ref.account`.
+
+### `getPerpPositionAnalytics`
+
+`dist/somniaMarketsClient.d.ts` and `dist/perp/margin.d.ts` (`PerpPositionAnalytics`, `PerpPositionMetrics`).
+
+```ts
+client.getPerpPositionAnalytics(ref: PerpPositionRef): Promise<PerpPositionAnalytics>
+```
+
+Account: `ref.account`. Same triple as `getPerpPosition`.
+
+```ts
+type PerpPositionAnalytics =
+  | ({
+      priceable: true;
+      asOfBlock: bigint;
+      pool: Address;
+      avgEntryPrice: bigint;
+      markPrice: bigint;
+    } & PerpPositionMetrics)
+  | { priceable: false; asOfBlock: bigint; pool: Address; size: bigint };
+
+interface PerpPositionMetrics {
+  size: bigint;
+  notional: bigint;
+  unrealizedPnl: bigint;   // price only; excludes funding
+  accruedFunding: bigint;  // OWED: positive means the account pays
+  equityContribution: bigint; // unrealizedPnl − accruedFunding
+  initialMarginRequirement: bigint;
+  maintenanceMarginRequirement: bigint;
+  closeOutMarginRequirement: bigint;
+  returnOnMarginBps: bigint | null;
+}
+```
+
+`listPerpPositionAnalytics({ marginBank, account })` is the batch sibling. Not required by the task list. It returns `PerpPositionAnalytics[]` pinned to one block.
+
+### `cancelOrder`
+
+`dist/trade.d.ts` (`CancelOrderParams`, `Trader.cancelOrder`). Implementation encodes `cancelOrder(uint128 orderId)` from `binaryPoolWriteAbi` (`src/orders.ts`). `perpPoolWriteAbi` declares the same `cancelOrder(uint128 orderId)`.
+
+```ts
+trader.cancelOrder(params: CancelOrderParams): Promise<TxResult>
+interface CancelOrderParams { pool: Address; orderId: bigint | string; gas?: bigint }
+interface TxResult { hash: Hash; receipt: TransactionReceipt; executionTimeMicros?: number }
+```
+
+Account: the trader signer. There is no `owner` argument. TSDoc says spot and binary. A linked bot calling this cancels as the bot, not as `OWNER_ADDRESS`.
+
+### `cancelAllOrders`
+
+`dist/trade.d.ts` (`CancelAllOrdersOptions`, `CancelAllOrdersResult`).
+
+```ts
+trader.cancelAllOrders(pool: Address, opts?: CancelAllOrdersOptions): Promise<CancelAllOrdersResult>
+interface CancelAllOrdersOptions { source?: "chain" | "live"; gas?: bigint }
+type CancelAllOrdersResult =
+  | { sent: false; orderIds: []; outcomes: [] }
+  | (CancelOrdersResult & { sent: true; orderIds: bigint[] });
+```
+
+Account: the trader signer. `source: "chain"` reads `getOwnOpenOrdersOnchain(pool, w.fromAddress)`. Empty book returns `sent: false` and broadcasts nothing. TSDoc does not mention an owner argument.
+
+### `reduceOrder` / `reduceOrders` (order quantity, not position size)
+
+`dist/trade.d.ts` (`ReduceOrderParams`, `ReduceOrdersParams`).
+
+```ts
+trader.reduceOrder(params: ReduceOrderParams): Promise<TxResult>
+interface ReduceOrderParams {
+  pool: Address;
+  orderId: bigint | string;
+  newQuantityRemaining: bigint; // lot multiple, >= minQuantity, strictly below current remaining
+  gas?: bigint;
+}
+trader.reduceOrders(params: ReduceOrdersParams): Promise<TxResult>
+```
+
+Account: the trader signer. These shrink a resting order's remaining quantity. They are not a position reduce. TSDoc says spot and binary. `placePerpOrder` (`PlacePerpOrderParams`) has no `reduceOnly` field. The only `reduceOnly` in the trader surface is `PerpStopIntent = "reduceOnly" | "opening"` on stop orders (`dist/trade.d.ts`, `dist/perp/stops.d.ts`).
+
+## Deviations — symbols absent from `.d.ts` (TASK-11.1)
+
+Grep of `dist/**/*.d.ts` found no `function` or method named `placeOrderFor`, `cancelOrderFor`, `cancelAllOrdersFor`, or `reduceOrderFor`.
+
+| Symbol | In `.d.ts`? | Nearest real symbol |
+| --- | --- | --- |
+| `placeOrderFor` | No method. Selector constant only. | `Trader.placePerpOrder` places for the signer. Linked-owner sends stay on the viem path in `src/agents/execution.ts`. |
+| `cancelOrderFor` | No method. Selector constant only. | `Trader.cancelOrder({ pool, orderId })` — signer, not owner. |
+| `cancelAllOrdersFor` | Absent. No selector constant. | `Trader.cancelAllOrders(pool)` — signer's resting ids. |
+| `reduceOrderFor` | Absent. No selector constant. | `Trader.reduceOrder` shrinks a resting order. No perp position-reduce method. |
+
+Selector constants, `dist/spot/operatorGrants.d.ts`, re-exported from `dist/index.d.ts`:
+
+- `PLACE_ORDER_FOR_SELECTOR = "0x80054449"`
+- `CANCEL_ORDER_FOR_SELECTOR = "0xe37b444b"`
+
+There is no `REDUCE_ORDER_FOR_SELECTOR` export. `operatorGrants.ts` marks this module SPOT-ONLY in a source comment. The constants are still the 4-byte selectors the registry stores.
+
+Selector cross-check (not a `.d.ts` declaration). `viem.toFunctionSelector` on 2026-10-29:
+
+- `placeOrderFor(address,bool,uint64,uint256,uint256,uint64,uint8,uint8,address,uint96)` → `0x80054449` (matches `PLACE_ORDER_FOR_SELECTOR`).
+- `cancelOrderFor(address,uint128)` → `0xe37b444b` (matches `CANCEL_ORDER_FOR_SELECTOR`).
+- `cancelOrderFor(uint128)` → `0x07c0a8df` (does not match).
+
+`payable` and return types are not part of a selector. The repo ABI in `src/agents/execution.ts` already uses that `placeOrderFor` argument list plus `payable returns (bool success, uint128 orderId)`. That return tail is repo code, not an SDK declaration. Do not invent `cancelOrderFor` / `reduceOrderFor` ABIs from the selector match alone; Phase 12 must cite this section before encoding one.
