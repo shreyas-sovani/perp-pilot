@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-12.1
+* **Last Completed Task:** TASK-12.3
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1501,11 +1501,11 @@
   * *Exact Action:* Wire per TASK-11.1 extraction, owner/linked semantics per the bot-kit perps guide: `cancelAllOrders*` / `cancelOrderFor(orderId)`; reduce path — if the SDK exposes a reduce-only entry (perps orders doc: reduce-only orders can only shrink a position), use it; otherwise send an opposite-side order capped at |position qty| and record the deviation in `docs/sdk-api.md`. Reuse the ExecutionReport states; record cancel results in the orders table.
   * *Verification Criteria:* Dry-run unit tests with a mocked trader for cancel-all, cancel-one, reduce; live proof deferred to TASK-15.6.
 
-- [ ] **TASK-12.2: Orchestrator honors close / reduce / cancel_all.**
+- [x] **TASK-12.2: Orchestrator honors close / reduce / cancel_all.**
   * *Exact Action:* Replace the dead early-return at `src/agents/orchestrator.ts:60-63`. Mapping: `close` ⇒ full-qty reduce intent (origin `copilot`, `reduceOnly: true`); `reduce` ⇒ reduce intent sized `min(decision.notionalUsdso, |position notional|)`; `cancel_all` ⇒ `execution.cancelAll()` then continue the tick. Every intent still passes `evaluate()` — no bypass of the kernel.
   * *Verification Criteria:* Tests for each decision→intent mapping incl. the veto path; copilot prompt (`src/agents/copilot.ts` SYSTEM) unchanged — actions now real.
 
-- [ ] **TASK-12.3: Minimal ReporterAgent — auto-capture to findings.**
+- [x] **TASK-12.3: Minimal ReporterAgent — auto-capture to findings.**
   * *Exact Action:* New `src/agents/reporter.ts` subscribing to the bus: `execution.report` with state REJECTED, `orchestrator tick.error`, risk verdicts containing `E_STALE_MARK`/`E_MARK_NOT_PRICEABLE`, and `guard.trigger` → insert a findings row (id = `auto-<sha1(kind+reason+day)[12]>`) and render `feedback/auto-<slug>.md` via `template.ts`, status `open`, idempotent by id. This delivers the PRD §2.3 claim "every MVP incident auto-generates a feedback report."
   * *Verification Criteria:* Unit test: publish fake rejection envelope ⇒ exactly one findings row + one file; republish ⇒ no duplicate.
 
