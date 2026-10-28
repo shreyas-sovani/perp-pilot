@@ -34,7 +34,7 @@ export type Decision = z.infer<typeof Decision>;
 export const OrderIntent = z.object({
   id: z.string().uuid(), symbol: z.string(),
   side: z.enum(['buy', 'sell']), reduceOnly: z.boolean(),
-  notionalUsdso: z.string(), tif: z.enum(['GTC', 'IOC', 'FOK', 'ALO']),
+  notionalUsdso: z.string(), qtyBase: z.string().optional(), tif: z.enum(['GTC', 'IOC', 'FOK', 'ALO']),
   limitPriceUsdso: z.string().nullable(),
   origin: z.enum(['copilot', 'guard', 'probe']),
 });

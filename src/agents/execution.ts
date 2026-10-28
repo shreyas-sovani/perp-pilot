@@ -112,8 +112,10 @@ export class ExecutionAgent {
       return this.record(intent, { state: 'REJECTED', rejectReason: `E_NOT_PLACEABLE:${sizeProbe.limitedBy}` });
     }
     const qtyHuman = Number(intent.notionalUsdso) / Number(formatUnits(priceRaw, Number(row.quoteDecimals)));
-    let qtyRaw = alignLot(parseUnits(qtyHuman.toFixed(12), Number(row.baseDecimals)), lot, minQty);
-    if (qtyRaw > sizeProbe.maxQuantity) qtyRaw = sizeProbe.maxQuantity - (sizeProbe.maxQuantity % (lot > 0n ? lot : 1n));
+    let qtyRaw = intent.qtyBase
+      ? alignLot(parseUnits(intent.qtyBase, Number(row.baseDecimals)), lot, minQty)
+      : alignLot(parseUnits(qtyHuman.toFixed(12), Number(row.baseDecimals)), lot, minQty);
+    if (!intent.qtyBase && qtyRaw > sizeProbe.maxQuantity) qtyRaw = sizeProbe.maxQuantity - (sizeProbe.maxQuantity % (lot > 0n ? lot : 1n));
     if (qtyRaw < minQty) {
       return this.record(intent, { state: 'REJECTED', rejectReason: 'E_BELOW_MIN_QTY' });
     }

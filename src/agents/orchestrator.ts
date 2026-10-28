@@ -6,14 +6,17 @@ import { fundingCarry, emaMomentum, combine } from './signals.ts';
 import { decide } from './copilot.ts';
 import { evaluate, type PositionLike } from './risk.ts';
 import { ExecutionAgent } from './execution.ts';
-import { guardIntents } from './guard.ts';
+import { guardStep, inflightGuard, readHalted } from './guard.ts';
 import { OrderIntent } from './schemas.ts';
 import { bookLimitPrice } from './pricing.ts';
 
 export class Orchestrator {
   private md = new MarketDataAgent();
   private exec = new ExecutionAgent();
-  private halted = false;
+  private halted = readHalted();
+  private lastSync = 0;
+  private guardCooldown = 0;
+  isHalted(): boolean { return this.halted; }
   async start() {
     busStartJournal();
     await this.md.warmup();
@@ -27,7 +30,8 @@ export class Orchestrator {
   }
   private positionFromDb(): PositionLike | null {
     const row = db.prepare('SELECT * FROM positions WHERE symbol=?').get(cfg.SYMBOL) as { symbol: string; qty: string; avgEntry: string } | undefined;
-    return row ? { symbol: row.symbol, qty: Number(row.qty), avgEntry: Number(row.avgEntry) } : null;
+    if (!row) return null;
+    return { symbol: row.symbol, qty: Number(row.qty), avgEntry: Number(row.avgEntry), qtyBase: row.qty.replace(/^-/, '') };
   }
   private openOrderCount(): number {
     const row = db.prepare("SELECT COUNT(*) c FROM orders WHERE state IN ('PREFLIGHT','SUBMITTED','MINED') AND updatedAt > ?").get(Date.now() - 3600_000) as { c: number } | undefined;
@@ -36,18 +40,26 @@ export class Orchestrator {
   private async tick() {
     const snap = await this.md.snapshot();
     publish('marketData', 'market.snapshot', snap, IS_DRY());
-    kv.set('equityUsdso', kv.get('equityUsdso') ?? '0');
+    if (Date.now() - this.lastSync >= 30_000) {
+      await this.md.syncAccount();
+      this.lastSync = Date.now();
+    }
     const position = this.positionFromDb();
     const mark = Number(snap.markPrice) / 1e18;
-    db.prepare('INSERT OR REPLACE INTO equity(ts,equityUsdso,unrealizedPnl) VALUES(?,?,?)')
-      .run(Date.now(), kv.get('equityUsdso')!, position ? String((mark - position.avgEntry) * position.qty) : '0');
 
-    for (const gi of guardIntents(position, mark, snap)) {
+    const step = guardStep({ position, cooldown: this.guardCooldown, inflight: inflightGuard(cfg.SYMBOL) }, mark, snap);
+    this.guardCooldown = step.cooldown;
+    for (const gi of step.intents) {
       const v = evaluate(gi, { snapshot: snap, position, openOrders: this.openOrderCount() });
       publish('risk', 'risk.verdict', v, IS_DRY());
       if (v.approved) {
         const r = await this.exec.execute(gi);
-        if (r.state === 'CONFIRMED') { this.halted = true; kv.set('halted', 'guard-close'); }
+        if (r.state === 'CONFIRMED' || r.state === 'REJECTED') this.guardCooldown = 3;
+        if (r.state === 'CONFIRMED') {
+          await this.md.syncAccount();
+          this.halted = true;
+          kv.set('halted', 'guard-close');
+        }
       }
     }
     if (this.halted) return;
@@ -73,15 +85,6 @@ export class Orchestrator {
     publish('risk', 'risk.verdict', v, IS_DRY());
     if (!v.approved) return;
     const notional = v.adjustedNotionalUsdso ?? intent.notionalUsdso;
-    const rep = await this.exec.execute({ ...intent, notionalUsdso: notional });
-    if (rep.state === 'CONFIRMED' && rep.txHash) {
-      const qty = Number(notional) / mark;
-      const sideSign = intent.side === 'buy' ? 1 : -1;
-      const p = this.positionFromDb();
-      const newQty = (p ? p.qty : 0) + sideSign * qty;
-      db.prepare(`INSERT INTO positions(symbol,qty,avgEntry,realizedPnl,openedAt,updatedAt) VALUES(?,?,?,?,?,?)
-        ON CONFLICT(symbol) DO UPDATE SET qty=excluded.qty, avgEntry=excluded.avgEntry, updatedAt=excluded.updatedAt`)
-        .run(cfg.SYMBOL, String(newQty), String(mark), '0', Date.now(), Date.now());
-    }
+    await this.exec.execute({ ...intent, notionalUsdso: notional });
   }
 }

@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-11.4
+* **Last Completed Task:** TASK-11.5
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1486,7 +1486,7 @@
   * *Exact Action:* In the Orchestrator tick (no faster than every 30s): `getAccountHealth(marginBank, marginAccount())` → `kv equityUsdso` (replaces the manual 2000); `getPerpPosition(…)` on the OWNER account → upsert the positions row (signed qty, positive = long; entry from the read); `getPerpPositionAnalytics(…)` → `unrealizedPnl` + accrued funding into the equity row and dashboard payload. **Delete** the local "position = notional / mark" write (`src/agents/orchestrator.ts:76-84`). Maintain `realized:<dayKey>` in kv from the analytics realized-PnL day delta; migrate `risk.ts`/`guard.ts` reads from `realizedToday` to `realized:<dayKey>`. `dailyAnchorUsdso` now anchors on synced equity — fresh clone works with no kv surgery.
   * *Verification Criteria:* Unit tests with mocked SDK assert kv + rows; on a live doctor run, `kv equityUsdso` equals the printed owner equity; with a position open, equity rows show non-constant `unrealizedPnl`.
 
-- [ ] **TASK-11.5: Guard correctness — sizing, re-fire, durability, loss cap.**
+- [x] **TASK-11.5: Guard correctness — sizing, re-fire, durability, loss cap.**
   * *Exact Action:*
     1. Size closes by quantity: add optional `qtyBase: string` (human base units) to `OrderIntent`; `ExecutionAgent` uses it directly (lot/min aligned) when present; `guardIntents` sets it from the on-chain position qty from TASK-11.4 (notional stays as display = qty × chain mark).
     2. After a guard order CONFIRMED: re-read `getPerpPosition`; flat ⇒ delete the positions row + update `realized:<dayKey>`; not flat ⇒ refresh the row (partial close truth).
