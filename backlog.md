@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-13.1
+* **Last Completed Task:** TASK-13.2
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1519,7 +1519,7 @@
   * *Exact Action:* The funding doc quotes rates as fractions (0.08% → 0.0008; payment = size × index × rate ÷ 8) but never states the GraphQL field's integer scale; the live ETH value observed is `100000000000000`. Do NOT guess the divisor. Solve it from data: query `getFundingPayments(owner)` (SDK) and `FundingPayment` (indexer), take size + indexPrice from the same period, solve for rate; cross-check `getPerpSystemConfig` for any precision/scale field. Record the verified divisor + solving evidence in `docs/sdk-api.md`; fix `fundingAprFromRate` (`src/indexer.ts:58`); add a unit test using the observed `1e14` sample; dashboard renders human APR %. If the docs genuinely omit the scale, render that as a new bounty-format docs finding (it is one).
   * *Verification Criteria:* Test green on the observed sample; APR sane on a live read; divisor documented with evidence.
 
-- [ ] **TASK-13.2: Price band to 50 bps (PRD FR-5).**
+- [x] **TASK-13.2: Price band to 50 bps (PRD FR-5).**
   * *Exact Action:* `src/agents/risk.ts:47` — `0.005 * 10` → `0.005`; tests on both sides of the band; comment notes this is a repo-own rule per PRD, not a docs rule.
   * *Verification Criteria:* New test red on old code, green on new.
 

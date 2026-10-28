@@ -33,6 +33,13 @@ it('vetoes stale mark', () =>
   expect(evaluate(intent(), { ...ctx, snapshot: { ...snap, markAgeMs: 99_999 } }).reasons).toContain('E_STALE_MARK'));
 it('vetoes wrong market', () =>
   expect(evaluate(intent({ symbol: 'BTC-PERP' }), ctx).reasons).toContain('E_WRONG_MARKET'));
+it('vetoes a limit more than 50 bps from the mark', () => {
+  expect(evaluate(intent({ limitPriceUsdso: '3030' }), ctx).reasons).toContain('E_PRICE_BAND');
+});
+it('allows a limit inside 50 bps', () => {
+  kv.set(`realized:${dayKey()}`, '0');
+  expect(evaluate(intent({ limitPriceUsdso: '3012' }), ctx).approved).toBe(true);
+});
 it('vetoes when daily loss cap hit', () => {
   kv.set(`realized:${dayKey()}`, '-99');
   expect(evaluate(intent(), ctx).reasons).toContain('E_DAILY_LOSS');

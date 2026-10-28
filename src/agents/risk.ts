@@ -41,10 +41,10 @@ export function evaluate(intent: OrderIntent, ctx: RiskCtx): RiskVerdict {
     if (ctx.openOrders >= cfg.MAX_OPEN_ORDERS && !intent.reduceOnly) reasons.push('E_MAX_OPEN_ORDERS');
     const realized = Number(kv.get(`realized:${dayKey()}`) ?? '0');
     if (realized <= -cfg.DAILY_LOSS_CAP_USDSO) reasons.push('E_DAILY_LOSS');
-    // price-band veto: refuse entries when mark moved > 50bps since snapshot
+    // Repo-own entry band from PRD FR-5 (50 bps). Not a dreamDEX docs rule.
     if (intent.limitPriceUsdso) {
       const lp = Number(intent.limitPriceUsdso);
-      if (Math.abs(lp - mark) / mark > 0.005 * 10) reasons.push('E_PRICE_BAND');
+      if (mark > 0 && Math.abs(lp - mark) / mark > 0.005) reasons.push('E_PRICE_BAND');
     }
   }
   if (notional < 1) reasons.push('E_NOTIONAL_TOO_SMALL');
