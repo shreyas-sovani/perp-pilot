@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-13.3
+* **Last Completed Task:** TASK-13.4
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1527,7 +1527,7 @@
   * *Exact Action:* Bucket `markHistory` ticks into 1-minute closes; EMA(9)/EMA(21) over closes (PRD FR-7 wording becomes true); warmup = 21 minutes, surfaced in the dashboard ("warming up x/21 min") and README. Pure bucketing function + test.
   * *Verification Criteria:* Bucketing unit test; signal flat until 21 closes, then direction follows the spread.
 
-- [ ] **TASK-13.4: Open-order accounting.**
+- [x] **TASK-13.4: Open-order accounting.**
   * *Exact Action:* `openOrderCount` counts orders in PREFLIGHT/SIGNED/SUBMITTED/MINED plus CONFIRMED-with-`onChainOrderId` not yet cancelled/filled (add reconciliation from TASK-11.4 / cancels from TASK-12.1 — a `clearedAt` column is fine); drop the arbitrary 1-hour window.
   * *Verification Criteria:* Test: resting GTC in CONFIRMED counts against `MAX_OPEN_ORDERS`.
 

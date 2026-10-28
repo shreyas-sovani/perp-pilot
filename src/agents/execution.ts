@@ -8,6 +8,7 @@ import { db } from '../db.ts';
 import { publish } from '../bus.ts';
 import { OrderIntent, ExecutionReport, type ExecutionReport as ER } from './schemas.ts';
 import { log } from '../logger.ts';
+import { markOrdersCleared } from './openOrders.ts';
 
 // The markets SDK has no perp placeOrderFor. Official perp-core sends it with viem.
 // https://github.com/somnia-chain/dreamdex-bot-kit/blob/main/packages/perp-core/src/operator.ts
@@ -109,6 +110,7 @@ export class ExecutionAgent {
     if (ids.length === 0) return this.record(intent, { state: 'CONFIRMED', rejectReason: 'NO_RESTING_ORDERS' });
     try {
       for (const id of ids) await this.cancelFor(row.poolAddress, id);
+      markOrdersCleared(ids.map((id) => id.toString()));
       return this.record(intent, { state: 'CONFIRMED' });
     } catch (e) {
       return this.record(intent, { state: 'REJECTED', rejectReason: String((e as Error).message ?? e).slice(0, 300) });
@@ -121,6 +123,7 @@ export class ExecutionAgent {
     const row = await requireMarket(this.markets, symbol);
     try {
       const tx = await this.cancelFor(row.poolAddress, BigInt(orderId));
+      if (tx.receipt.status === 'success') markOrdersCleared([orderId]);
       return this.record(intent, { state: tx.receipt.status === 'success' ? 'CONFIRMED' : 'REJECTED', txHash: tx.hash, onChainOrderId: orderId });
     } catch (e) {
       return this.record(intent, { state: 'REJECTED', rejectReason: String((e as Error).message ?? e).slice(0, 300) });
