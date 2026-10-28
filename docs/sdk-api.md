@@ -488,4 +488,6 @@ Selector cross-check (not a `.d.ts` declaration). `viem.toFunctionSelector` on 2
 
 Day realized PnL is not a field of `getPerpPositionAnalytics`. The nearest real read is `client.listPerpPositionChanges` (`dist/somniaMarketsClient.d.ts`, row type `PerpPositionChange.realizedPnl` in `dist/perp/history.d.ts`). `src/agents/accountSync.ts` sums `REDUCE`/`CLOSE`/`FLIP` rows since UTC midnight into `kv realized:<dayKey>`.
 
+Phase 12 encodes `cancelOrderFor(address,uint128)` because that string's selector is `CANCEL_ORDER_FOR_SELECTOR`. `cancelAll` reads `client.getOwnOpenOrdersOnchain(pool, owner)` (`dist/somniaMarketsClient.d.ts`) and cancels each id. There is no `cancelAllOrdersFor`. There is no `reduceOrderFor` and `placePerpOrder` has no `reduceOnly`. A reduce is an opposite-side order capped at the absolute position quantity, sent on the same `placeOrderFor` path.
+
 `payable` and return types are not part of a selector. The repo ABI in `src/agents/execution.ts` already uses that `placeOrderFor` argument list plus `payable returns (bool success, uint128 orderId)`. That return tail is repo code, not an SDK declaration. Do not invent `cancelOrderFor` / `reduceOrderFor` ABIs from the selector match alone; Phase 12 must cite this section before encoding one.

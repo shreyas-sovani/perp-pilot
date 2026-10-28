@@ -11,9 +11,13 @@ import { log } from '../logger.ts';
 
 // The markets SDK has no perp placeOrderFor. Official perp-core sends it with viem.
 // https://github.com/somnia-chain/dreamdex-bot-kit/blob/main/packages/perp-core/src/operator.ts
+// placeOrderFor / cancelOrderFor are not SDK methods. Argument lists are the ones
+// whose selectors equal PLACE_ORDER_FOR_SELECTOR and CANCEL_ORDER_FOR_SELECTOR
+// (docs/sdk-api.md). There is no cancelAllOrdersFor or reduceOrderFor.
 const OPERATOR_ABI = [
   ...parseAbi([
     'function placeOrderFor(address owner, bool isBid, uint64 userData, uint256 price, uint256 quantity, uint64 expireTimestampNs, uint8 orderType, uint8 selfMatchingOption, address builder, uint96 builderFeeBpsTimes1k) payable returns (bool success, uint128 orderId)',
+    'function cancelOrderFor(address owner, uint128 orderId)',
   ]),
   ...contractErrorsAbi,
 ] as const;
@@ -52,7 +56,7 @@ function farFutureNs(): bigint {
 
 export class ExecutionAgent {
   private markets: Markets;
-  constructor() { this.markets = initSdk(); }
+  constructor(markets?: Markets) { this.markets = markets ?? initSdk(); }
 
   private record(intent: OrderIntent, patch: Partial<ER>): ER {
     const rep = ExecutionReport.parse({ intentId: intent.id, state: 'PREFLIGHT', txHash: null, onChainOrderId: null, rejectReason: null, gasUsed: null, ts: Date.now(), ...patch });
@@ -87,6 +91,66 @@ export class ExecutionAgent {
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     const decoded = decodePlaceOrder(receipt, pool);
     return { hash, receipt, orderId: decoded.orderId, fills: decoded.fills.length };
+  }
+
+  private controlIntent(symbol: string, side: 'buy' | 'sell' = 'sell'): OrderIntent {
+    return OrderIntent.parse({
+      id: crypto.randomUUID(), symbol, side, reduceOnly: true,
+      notionalUsdso: '0', tif: 'GTC', limitPriceUsdso: null, origin: 'copilot',
+    });
+  }
+
+  async cancelAll(symbol = cfg.SYMBOL): Promise<ER> {
+    const intent = this.controlIntent(symbol);
+    if (IS_DRY()) return this.record(intent, { state: 'REJECTED', rejectReason: 'DRY_RUN_BLOCKED' });
+    const row = await requireMarket(this.markets, symbol);
+    const owner = marginAccount();
+    const ids = await this.markets.client.getOwnOpenOrdersOnchain(row.poolAddress, owner);
+    if (ids.length === 0) return this.record(intent, { state: 'CONFIRMED', rejectReason: 'NO_RESTING_ORDERS' });
+    try {
+      for (const id of ids) await this.cancelFor(row.poolAddress, id);
+      return this.record(intent, { state: 'CONFIRMED' });
+    } catch (e) {
+      return this.record(intent, { state: 'REJECTED', rejectReason: String((e as Error).message ?? e).slice(0, 300) });
+    }
+  }
+
+  async cancelOrder(orderId: string, symbol = cfg.SYMBOL): Promise<ER> {
+    const intent = this.controlIntent(symbol);
+    if (IS_DRY()) return this.record(intent, { state: 'REJECTED', rejectReason: 'DRY_RUN_BLOCKED' });
+    const row = await requireMarket(this.markets, symbol);
+    try {
+      const tx = await this.cancelFor(row.poolAddress, BigInt(orderId));
+      return this.record(intent, { state: tx.receipt.status === 'success' ? 'CONFIRMED' : 'REJECTED', txHash: tx.hash, onChainOrderId: orderId });
+    } catch (e) {
+      return this.record(intent, { state: 'REJECTED', rejectReason: String((e as Error).message ?? e).slice(0, 300) });
+    }
+  }
+
+  /** No reduce-only place entry exists. Shrink by an opposite order capped at the position qty. */
+  async reduce(intent: OrderIntent, positionQtyBase: string): Promise<ER> {
+    const cap = Number(positionQtyBase);
+    const requested = intent.qtyBase != null ? Number(intent.qtyBase) : cap;
+    const qtyBase = String(Math.min(Math.abs(requested), Math.abs(cap)));
+    return this.execute({ ...intent, reduceOnly: true, qtyBase });
+  }
+
+  private async cancelFor(pool: Address, orderId: bigint): Promise<{ hash: Hash; receipt: TransactionReceipt }> {
+    const account = privateKeyToAccount(cfg.BOT_PRIVATE_KEY as `0x${string}`);
+    const transport = http(cfg.RPC_URL_HTTP);
+    const publicClient = createPublicClient({ chain: hidekiTestnet, transport });
+    const walletClient = createWalletClient({ account, chain: hidekiTestnet, transport });
+    const { request } = await publicClient.simulateContract({
+      address: pool,
+      abi: OPERATOR_ABI,
+      functionName: 'cancelOrderFor',
+      args: [marginAccount(), orderId],
+      account,
+      gas: GAS_LIMIT,
+    });
+    const hash = await walletClient.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    return { hash, receipt };
   }
 
   async execute(intent: OrderIntent): Promise<ER> {
