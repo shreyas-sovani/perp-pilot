@@ -7,13 +7,15 @@ Area: SDK
 2. If limitedBy is voucherBlocked, attempt one order and record the revert.
 
 ## Expected
-limitedBy "voucherBlocked" for a voucher account on ZEC-PERP.
+limitedBy voucherBlocked once the account has voucher credit. Until then collateral masks it.
 
 ## Actual
-limitedBy collateral
+Bot limitedBy collateral. Owner limitedBy collateral. voucherBlocked is masked while the account is unfunded or the claim reverts.
 
 ## Evidence
-- limitedBy: collateral maxQuantity: 0 placeable: false
+- bot signer limitedBy collateral max 0
+- owner limitedBy collateral max 773500000
+- Precedence: collateral on an unfunded account masks voucherBlocked. The bot claim that would add voucher credit reverts 0x3e31dcc2 (P-15), so the documented voucherBlocked case stays unreachable here.
 
 ## Environment
 SDK version: @somnia-chain/markets-sdk@0.32.1

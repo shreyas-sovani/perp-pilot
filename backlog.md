@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-13.4
+* **Last Completed Task:** TASK-14.8
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1535,35 +1535,35 @@
 
 Standing rules for this phase: every report states which documented case it reached and which it did not; never overwrite stronger evidence with weaker; prior observed results stay as legs of the report. All chain legs run under `RUN_CHAIN_PROBES=1` with owner gas budget ≈ 0.01–0.05 STT total.
 
-- [ ] **TASK-14.1: P-01 two legs.**
+- [x] **TASK-14.1: P-01 two legs.**
   * *Exact Action:* Leg A (already observed, keep): 6-decimal quantity → `InvalidQuantity(10000, 100000000000000)` — the docs' `InsufficientCollateral()` claim is NOT what a decimal bug produces; that divergence is the finding. Leg B (new): correctly 18-dec, tick/lot-aligned, over-margin quantity via the owner `placeOrderFor` path → record whether `0x3a23d825` is reachable and what the owner path actually reverts with (observed once as `ERC20: transfer amount exceeds balance`).
   * *Verification Criteria:* Report has both legs with selector evidence; `actual` no longer overclaims.
 
-- [ ] **TASK-14.2: P-05 + P-08 funded-account rerun.**
+- [x] **TASK-14.2: P-05 + P-08 funded-account rerun.**
   * *Exact Action:* Rerun both with `account: OWNER_ADDRESS` (funded 2000 USDso), not the unfunded bot signer (which only yields `maxQuantity 0, limitedBy collateral`). P-05: ramp real orders toward `maxQuantity` and compare quoted vs accepted size. P-08: document the `limitedBy` precedence — `collateral` masks `voucherBlocked` until credit exists in the account; the bot claim needed for credit reverts (`0x3e31dcc2`, see P-15), so the documented case is unreachable on this setup — that masking behavior, with evidence, is the finding.
   * *Verification Criteria:* Both reports carry owner-account evidence lines; P-08 states the precedence explicitly.
 
-- [ ] **TASK-14.3: P-06 allowance/cap leg.**
+- [x] **TASK-14.3: P-06 allowance/cap leg.**
   * *Exact Action:* Pre-establish the spending path per the bot-kit perps guide (or place via owner `placeOrderFor`), read the per-account cap via `getMaxPerpOrderSize().maxPositionSize` on the funded owner when priceable, submit above it → capture whether `0x714b36d6` is reached. Keep the observed `ERC20: insufficient allowance` as an evidence leg (allowance UX gap is itself reportable).
   * *Verification Criteria:* Report shows the cap read + the actual revert for the over-cap attempt.
 
-- [ ] **TASK-14.4: P-07 correct contract targeting.**
+- [x] **TASK-14.4: P-07 correct contract targeting.**
   * *Exact Action:* `stopRegistry` lives on the market row — ETH-PERP's is null, and that absence is itself the finding (no stop path on the allowlisted default market via the SDK row). `OperatorPermissionsRegistry` is a different contract; verify any address (incl. `0x6B2FbfeD328FF5F20C0BE7D3C3437613aFFE8D3a`) against the live contract-addresses page <https://app.dreamdex.io/docs/developers/contracts/contract-addresses> before citing — never trust a chat-supplied address unverified. Attempt `placePerpStopOrder` only where a registry exists AND the account is USDso-only.
   * *Verification Criteria:* Report distinguishes stopRegistry vs operator registry; every address cited has its docs-page source.
 
-- [ ] **TASK-14.5: P-10 redesign around real staleness.**
+- [x] **TASK-14.5: P-10 redesign around real staleness.**
   * *Exact Action:* The docs tie `priceable:false` to a stale MARK, not to client `close()` (P-10's original design was wrong; `close()` leaving priceable true is now a secondary observation leg, not the case). New leg: sample `getPerpHealthSnapshot` across a funding-window boundary / quiet period and capture a real `priceable:false` occurrence + recovery time.
   * *Verification Criteria:* Report's `expected` matches the docs semantics; evidence line contains either a captured `priceable:false` or a dated statement that none occurred during N minutes of sampling.
 
-- [ ] **TASK-14.6: P-11 with a real order id.**
+- [x] **TASK-14.6: P-11 with a real order id.**
   * *Exact Action:* Place a resting GTC off-touch via the owner path → capture `onChainOrderId` → double-cancel → then fill it with a crossing IOC and cancel again. Record `IncorrectSender` vs the documented idempotency semantics for each leg.
   * *Verification Criteria:* Evidence lines carry the real order id + tx hashes; `actual` speaks to idempotency, not to a missing id.
 
-- [ ] **TASK-14.7: New probe P-15 — unnamed claim revert selector.**
+- [x] **TASK-14.7: New probe P-15 — unnamed claim revert selector.**
   * *Exact Action:* Probe reproducing the bot-account `claimPerpVoucher` result: eligibility true (grant 1000), simulation reverts with data `0x3e31dcc2`, `errorName` unset, selector absent from the installed SDK error ABI and unnamed at the contract-errors page. eth_call only, no broadcast. Render + commit.
   * *Verification Criteria:* `feedback/P15-*.md` in bounty format with the eligibility read + revert data + SDK version.
 
-- [ ] **TASK-14.8: Re-render, upsert, refresh evidence.**
+- [x] **TASK-14.8: Re-render, upsert, refresh evidence.**
   * *Exact Action:* `RUN_CHAIN_PROBES=1 npm run probe` per updated probe; regenerate reports; findings upsert; update the "Chain probes" section of `docs/EVIDENCE.md` to a per-probe reached / not-reached table.
   * *Verification Criteria:* All reports regenerated; EVIDENCE table matches findings rows.
 

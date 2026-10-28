@@ -3,20 +3,25 @@ Severity: normal
 Area: SDK
 
 ## Steps to reproduce
-1. Read priceable.
-2. Call markets.close() and wait 30s (no host firewall).
-3. Open a new client and read priceable again.
+1. Keep the close() observation as a secondary leg.
+2. Sample getPerpHealthSnapshot every 15s for 2 minutes. priceable:false means a stale mark, not a closed socket.
 
 ## Expected
-A dropped socket surfaces priceable:false until the feed recovers.
+priceable:false when the mark feed is stale, then recovery. A client close() is not that case.
 
 ## Actual
-SDK `close()` did not make the mark unpriceable. priceable stayed true after 31s. A process-local close is not a mark-oracle outage. No order was sent.
+No priceable:false in 8 samples over 2 minutes starting 2026-10-28T20:55:47.320Z.
 
 ## Evidence
-- before priceable: true
-- after priceable: true
-- transport drop was SDK close(), not a firewall rule
+- Prior leg (kept): markets.close() left priceable true after 31s. close() is not a stale mark.
+- 2026-10-28T20:55:48.000Z priceable=true
+- 2026-10-28T20:56:03.130Z priceable=true
+- 2026-10-28T20:56:18.336Z priceable=true
+- 2026-10-28T20:56:33.495Z priceable=true
+- 2026-10-28T20:56:48.625Z priceable=true
+- 2026-10-28T20:57:03.761Z priceable=true
+- 2026-10-28T20:57:18.895Z priceable=true
+- 2026-10-28T20:57:34.027Z priceable=true
 
 ## Environment
 SDK version: @somnia-chain/markets-sdk@0.32.1

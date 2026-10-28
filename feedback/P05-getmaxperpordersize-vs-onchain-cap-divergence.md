@@ -3,17 +3,19 @@ Severity: normal
 Area: API
 
 ## Steps to reproduce
-1. Read getMaxPerpOrderSize at an on-tick mark.
-2. Ramp live size only when placeable is true.
+1. Read getMaxPerpOrderSize for OWNER_ADDRESS.
+2. Place one min-quantity resting bid and compare it to the quoted max. Do not ramp to the full max.
 
 ## Expected
-maxQuantity equals the largest order that succeeds.
+Quoted maxQuantity matches the largest order the account can rest.
 
 ## Actual
-maxQuantity 0 placeable false limitedBy collateral. No ramp: nothing is placeable on this account.
+Prior leg (bot signer, kept): maxQuantity 0 placeable false limitedBy collateral. Owner read: max 16979300000000000000 limitedBy collateral. accepted minQuantity 4000000000000000 vs quoted max 16979300000000000000 tx 0x2b5358724bc52fc9ec5f737ab49acffd1896f1bf1bab75d0d5522b526fcb880b
 
 ## Evidence
-- maxQuantity 0 limitedBy collateral placeable false
+- Prior leg (bot signer, kept): maxQuantity 0 placeable false limitedBy collateral.
+- owner maxQuantity 16979300000000000000 limitedBy collateral placeable true
+- https://explorer.testnet.somnia.network/tokyo/tx/0x2b5358724bc52fc9ec5f737ab49acffd1896f1bf1bab75d0d5522b526fcb880b
 
 ## Environment
 SDK version: @somnia-chain/markets-sdk@0.32.1

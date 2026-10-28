@@ -1,9 +1,11 @@
-import { parseUnits, type Address } from 'viem';
+import { createPublicClient, http, parseUnits, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { ORDER_TYPE } from '@somnia-chain/markets-sdk';
+import { ORDER_TYPE, contractErrorsAbi } from '@somnia-chain/markets-sdk';
+import { hidekiTestnet } from '@somnia-chain/markets-sdk/chains';
 import { cfg, GAS_LIMIT } from '../config.ts';
 import { initSdk, requireMarket } from '../sdk.ts';
 import { getMarketRow } from '../indexer.ts';
+import { ownerAddress, placeArgs, sendOwner, simulateOwner } from './ownerTx.ts';
 
 export type Severity = 'critical' | 'major' | 'normal';
 export type Area = 'API' | 'SDK' | 'docs' | 'app' | 'contracts';
@@ -83,12 +85,23 @@ export async function placeAndCapture(opts: {
 }
 
 async function p01(): Promise<ProbeResult> {
-  const cap = await placeAndCapture({ isBid: true, priceRaw: parseUnits('2000', 18), qtyRaw: parseUnits('0.01', 6), tif: 'GTC' });
+  const markets = initSdk();
+  const row = await requireMarket(markets, cfg.SYMBOL);
+  const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
+  const tick = BigInt(row.tickSize);
+  const lot = BigInt(row.lotSize);
+  const price = health.priceable ? alignDown(health.markPrice, tick) : parseUnits('2000', 18);
+  const over = alignDown(parseUnits('50', 18), lot);
+  const sim = await simulateOwner(row.poolAddress, 'placeOrderFor', placeArgs(ownerAddress(), true, price, over, ORDER_TYPE.LIMIT));
+  const prior = 'Leg A (kept, 2026-10-27, no rebroadcast): 6-decimal qty parseUnits("0.01", 6) reverted InvalidQuantity(10000, 100000000000000), not InsufficientCollateral().';
   return {
-    steps: ['Size an intended 0.01 ETH as parseUnits("0.01", 6) instead of 18.', 'Submit a resting ETH-PERP bid at 2000 USDso.', 'Record the revert selector.'],
-    expected: 'A decimal-aware error, not a collateral failure.',
-    actual: cap.rejectReason ?? 'order was accepted',
-    evidence: cap.evidence,
+    steps: [
+      'Leg A, already observed: size 0.01 ETH as 6 decimals and record the revert.',
+      'Leg B: 18-decimal tick/lot-aligned quantity of 50 ETH via owner placeOrderFor. eth_call only.',
+    ],
+    expected: 'Docs say a decimal bug reverts InsufficientCollateral() 0x3a23d825. Leg A did not. Leg B records the owner-path revert for an over-margin size.',
+    actual: `${prior} Leg B reached the over-margin case: ${sim.ok ? 'simulation succeeded (not broadcast)' : sim.message.slice(0, 280)}`,
+    evidence: [prior, `leg B account: ${ownerAddress()}`, `leg B price ${price} qty ${over}`, sim.ok ? 'leg B simulation ok' : `leg B revert: ${sim.message.slice(0, 400)}`],
   };
 }
 
@@ -137,14 +150,26 @@ async function p05(): Promise<ProbeResult> {
   const row = await requireMarket(markets, cfg.SYMBOL);
   const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
   if (!health.priceable) return { steps: ['Read max size.'], expected: 'maxQuantity matches the largest successful order', actual: 'mark not priceable', evidence: ['priceable:false'] };
-  const quote = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price: health.markPrice });
-  const evidence = [quote.priceable ? `maxQuantity ${quote.maxQuantity} limitedBy ${quote.limitedBy} placeable ${quote.placeable}` : 'priceable:false'];
+  const quote = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: ownerAddress(), isBid: true, price: health.markPrice });
+  const prior = 'Prior leg (bot signer, kept): maxQuantity 0 placeable false limitedBy collateral.';
+  const evidence = [prior, quote.priceable ? `owner maxQuantity ${quote.maxQuantity} limitedBy ${quote.limitedBy} placeable ${quote.placeable}` : 'owner priceable:false'];
+  let accepted = 'no order sent';
+  if (quote.priceable && quote.placeable && quote.maxQuantity >= BigInt(row.minQuantity)) {
+    const qty = BigInt(row.minQuantity);
+    const price = alignDown(health.markPrice * 90n / 100n, BigInt(row.tickSize));
+    const sim = await simulateOwner(row.poolAddress, 'placeOrderFor', placeArgs(ownerAddress(), true, price, qty, ORDER_TYPE.LIMIT));
+    if (sim.ok) {
+      const tx = await sendOwner(row.poolAddress, 'placeOrderFor', placeArgs(ownerAddress(), true, price, qty, ORDER_TYPE.LIMIT));
+      accepted = `accepted minQuantity ${qty} vs quoted max ${quote.maxQuantity} tx ${tx.hash}`;
+      evidence.push(`${cfg.EXPLORER_TX_BASE}${tx.hash}`);
+    } else {
+      accepted = `minQuantity simulation reverted: ${sim.message.slice(0, 200)}`;
+    }
+  }
   return {
-    steps: ['Read getMaxPerpOrderSize at an on-tick mark.', 'Ramp live size only when placeable is true.'],
-    expected: 'maxQuantity equals the largest order that succeeds.',
-    actual: quote.priceable
-      ? `maxQuantity ${quote.maxQuantity} placeable ${quote.placeable} limitedBy ${quote.limitedBy}. No ramp: nothing is placeable on this account.`
-      : 'mark not priceable',
+    steps: ['Read getMaxPerpOrderSize for OWNER_ADDRESS.', 'Place one min-quantity resting bid and compare it to the quoted max. Do not ramp to the full max.'],
+    expected: 'Quoted maxQuantity matches the largest order the account can rest.',
+    actual: `${prior} Owner read: ${quote.priceable ? `max ${quote.maxQuantity} limitedBy ${quote.limitedBy}` : 'unpriceable'}. ${accepted}`,
     evidence,
     observedSeverity: 'normal',
   };
@@ -157,15 +182,20 @@ async function p06(): Promise<ProbeResult> {
   const tick = BigInt(row.tickSize);
   const price = health.priceable ? alignDown(health.markPrice, tick) : parseUnits('2000', 18);
   const quote = health.priceable
-    ? await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price })
+    ? await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: ownerAddress(), isBid: true, price, autoPull: false })
     : null;
-  const capQty = quote && quote.priceable ? quote.maxPositionSize + quote.lotSize : parseUnits('1000000', 18);
-  const cap = await placeAndCapture({ isBid: true, priceRaw: price, qtyRaw: capQty, tif: 'GTC' });
+  const prior = 'Prior leg (kept): bot placePerpOrder reverted ERC20: insufficient allowance. That leg is an allowance UX gap, not the position cap.';
+  let over = 'cap unread';
+  if (quote && quote.priceable) {
+    const qty = quote.maxPositionSize + BigInt(row.lotSize);
+    const sim = await simulateOwner(row.poolAddress, 'placeOrderFor', placeArgs(ownerAddress(), true, price, qty, ORDER_TYPE.LIMIT));
+    over = sim.ok ? `simulation of qty ${qty} above maxPositionSize ${quote.maxPositionSize} succeeded` : sim.message.slice(0, 300);
+  }
   return {
-    steps: ['Read maxPositionSize from getMaxPerpOrderSize when priceable.', 'Submit quantity above that cap.', 'Capture selector 0x714b36d6 if present.'],
-    expected: 'MaxPositionSizeExceeded 0x714b36d6 and a readable cap in the API.',
-    actual: cap.rejectReason ?? 'order accepted',
-    evidence: [...(quote && quote.priceable ? [`maxPositionSize: ${quote.maxPositionSize}`, `limitedBy: ${quote.limitedBy}`] : ['size quote unavailable']), ...cap.evidence],
+    steps: ['Read maxPositionSize on the funded owner.', 'eth_call placeOrderFor above that cap.', 'Keep the earlier allowance revert as its own leg.'],
+    expected: 'MaxPositionSizeExceeded 0x714b36d6 when size exceeds the per-account cap.',
+    actual: `${prior} Owner over-cap: ${over}`,
+    evidence: [prior, ...(quote && quote.priceable ? [`owner maxPositionSize: ${quote.maxPositionSize}`, `limitedBy: ${quote.limitedBy}`] : ['size quote unavailable']), over],
   };
 }
 
@@ -173,29 +203,26 @@ async function p07(): Promise<ProbeResult> {
   const markets = initSdk();
   const row = await requireMarket(markets, cfg.SYMBOL);
   const registry = row.stopRegistry;
-  const evidence = [`stopRegistry: ${registry ?? 'null'}`, 'docs: USDso-only voucher accounts cannot place stops (0.15 STT each). https://app.dreamdex.io/docs/trading/perps-testnet/orders'];
+  const evidence = [
+    `ETH-PERP stopRegistry from the SDK market row: ${registry ?? 'null'}`,
+    'Contract-addresses page fetched 2026-10-29 lists mainnet chain 5031 and Shannon testnet chain 50312. It does not list Tokyo chain 50383 and does not contain 0x6B2FbfeD328FF5F20C0BE7D3C3437613aFFE8D3A. That chat address is not cited as a stop registry.',
+    `Shannon OperatorPermissionsRegistry on that page: 0x15C7e8CE38F021c5b45d098AaD788f63090bF20A. Mainnet OperatorPermissionsRegistry: 0xE7a190736B6024a4DbafadC04E283075877005ce. Neither is PerpMarket.stopRegistry.`,
+  ];
   if (!registry) {
-    return { steps: ['Read PerpMarket.stopRegistry.', 'Attempt placePerpStopOrder only if a registry exists.'], expected: 'Stop placement fails for a voucher-only account.', actual: 'ETH-PERP stopRegistry is null.', evidence };
+    return {
+      steps: ['Read PerpMarket.stopRegistry for ETH-PERP.', 'Do not call placePerpStopOrder when the row is null.', 'Do not cite an operator-registry address that the live addresses page does not list for this chain.'],
+      expected: 'A stop registry on the allowlisted market, or a documented absence.',
+      actual: 'ETH-PERP stopRegistry is null. There is no stop path on the allowlisted default market via the SDK row. OperatorPermissionsRegistry is a different contract and is not published for Tokyo on the addresses page.',
+      evidence,
+    };
   }
-  try {
-    const tx = await markets.trader.placePerpStopOrder({
-      registry,
-      pool: row.poolAddress,
-      isBid: false,
-      quantity: BigInt(row.minQuantity),
-      triggerPrice: parseUnits('1000', 18),
-      triggerOperator: 1,
-      stopOrderType: 0,
-      limitPrice: parseUnits('1000', 18),
-      gas: GAS_LIMIT,
-    });
-    evidence.push(`tx: ${tx.hash} (${cfg.EXPLORER_TX_BASE}${tx.hash})`);
-    return { steps: ['Call placePerpStopOrder on ETH-PERP from the bot signer.'], expected: 'Revert for a USDso-only account.', actual: 'stop tx mined', evidence };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    evidence.push(`revert: ${msg.slice(0, 300)}`);
-    return { steps: ['Call placePerpStopOrder on ETH-PERP from the bot signer.'], expected: 'Revert for a USDso-only account.', actual: msg.slice(0, 300), evidence };
-  }
+  evidence.push('placePerpStopOrder was not sent on the rerun. The 2026-10-29 call threw before broadcast: needs operatorRegistry or addresses.operatorPermissionsRegistry.');
+  return {
+    steps: ['Read PerpMarket.stopRegistry.', 'Do not broadcast a stop when the trader has no operator registry configured.', 'Record that OperatorPermissionsRegistry is a different contract and is not on the Tokyo addresses page.'],
+    expected: 'A stop path on the allowlisted market, or a pre-flight error that names the missing operator registry.',
+    actual: `stopRegistry ${registry} is on the SDK row. No transaction was broadcast. The trader requires a configured operator registry, which is not the stop registry and is not published for Tokyo on the addresses page.`,
+    evidence,
+  };
 }
 
 async function p08(): Promise<ProbeResult> {
@@ -203,16 +230,22 @@ async function p08(): Promise<ProbeResult> {
   const row = await requireMarket(markets, 'ZEC-PERP');
   const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
   const price = health.priceable ? health.markPrice : parseUnits('100', 18);
-  const quote = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price });
-  const evidence = [quote.priceable ? `limitedBy: ${quote.limitedBy} maxQuantity: ${quote.maxQuantity} placeable: ${quote.placeable}` : 'priceable:false'];
+  const bot = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: signer(), isBid: true, price });
+  const owner = await markets.client.getMaxPerpOrderSize({ pool: row.poolAddress, marginBank: row.marginBank, account: ownerAddress(), isBid: true, price, autoPull: false });
+  const evidence = [
+    `bot signer limitedBy ${bot.priceable ? bot.limitedBy : 'unpriceable'} max ${bot.priceable ? bot.maxQuantity : 0n}`,
+    `owner limitedBy ${owner.priceable ? owner.limitedBy : 'unpriceable'} max ${owner.priceable ? owner.maxQuantity : 0n}`,
+    'Precedence: collateral on an unfunded account masks voucherBlocked. The bot claim that would add voucher credit reverts 0x3e31dcc2 (P-15), so the documented voucherBlocked case stays unreachable here.',
+  ];
+  const quote = owner;
   if (quote.priceable && quote.limitedBy === 'voucherBlocked') {
     const cap = await placeAndCapture({ symbol: 'ZEC-PERP', isBid: true, priceRaw: price, qtyRaw: quote.minQuantity || 1n, tif: 'GTC' });
     evidence.push(...cap.evidence);
   }
   return {
     steps: ['Read getMaxPerpOrderSize on ZEC-PERP for the bot account.', 'If limitedBy is voucherBlocked, attempt one order and record the revert.'],
-    expected: 'limitedBy "voucherBlocked" for a voucher account on ZEC-PERP.',
-    actual: quote.priceable ? `limitedBy ${quote.limitedBy}` : 'mark not priceable',
+    expected: 'limitedBy voucherBlocked once the account has voucher credit. Until then collateral masks it.',
+    actual: `Bot limitedBy ${bot.priceable ? bot.limitedBy : 'unpriceable'}. Owner limitedBy ${owner.priceable ? owner.limitedBy : 'unpriceable'}. voucherBlocked is masked while the account is unfunded or the claim reverts.`,
     evidence,
   };
 }
@@ -248,42 +281,78 @@ async function p09(): Promise<ProbeResult> {
 async function p10(): Promise<ProbeResult> {
   const markets = initSdk();
   const row = await requireMarket(markets, cfg.SYMBOL);
-  const before = await markets.client.getPerpHealthSnapshot(row.poolAddress);
-  await markets.close();
-  const t0 = Date.now();
-  await new Promise(r => setTimeout(r, 30_000));
-  const again = initSdk();
-  const row2 = await requireMarket(again, cfg.SYMBOL);
-  const after = await again.client.getPerpHealthSnapshot(row2.poolAddress);
+  const prior = 'Prior leg (kept): markets.close() left priceable true after 31s. close() is not a stale mark.';
+  const samples: string[] = [];
+  let sawFalse = false;
+  const started = new Date().toISOString();
+  for (let i = 0; i < 8; i++) {
+    const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
+    samples.push(`${new Date().toISOString()} priceable=${health.priceable}`);
+    if (!health.priceable) sawFalse = true;
+    if (i < 7) await new Promise(r => setTimeout(r, 15_000));
+  }
   return {
-    steps: ['Read priceable.', 'Call markets.close() and wait 30s (no host firewall).', 'Open a new client and read priceable again.'],
-    expected: 'A dropped socket surfaces priceable:false until the feed recovers.',
-    actual: `before ${before.priceable}; after ${after.priceable}; recoveryMs ${Date.now() - t0}`,
-    evidence: [`before priceable: ${before.priceable}`, `after priceable: ${after.priceable}`, 'transport drop was SDK close(), not a firewall rule'],
+    steps: ['Keep the close() observation as a secondary leg.', 'Sample getPerpHealthSnapshot every 15s for 2 minutes. priceable:false means a stale mark, not a closed socket.'],
+    expected: 'priceable:false when the mark feed is stale, then recovery. A client close() is not that case.',
+    actual: sawFalse
+      ? `Captured priceable:false during sampling that started ${started}.`
+      : `No priceable:false in 8 samples over 2 minutes starting ${started}.`,
+    evidence: [prior, ...samples],
+    observedSeverity: 'normal',
   };
 }
 
 async function p11(): Promise<ProbeResult> {
   const markets = initSdk();
   const row = await requireMarket(markets, cfg.SYMBOL);
-  const evidence = ['No resting order id was supplied. Double-cancel needs an order placed in TASK-9.'];
-  try {
-    await markets.trader.cancelOrder({ pool: row.poolAddress, orderId: 1n, gas: GAS_LIMIT });
-    evidence.push('first cancel of orderId 1 returned without throw');
-  } catch (e) {
-    evidence.push(`first cancel: ${String(e instanceof Error ? e.message : e).slice(0, 240)}`);
+  const health = await markets.client.getPerpHealthSnapshot(row.poolAddress);
+  const prior = 'Prior leg (kept): cancelOrder(orderId=1) as the bot signer reverted IncorrectSender twice. That was not a real resting id.';
+  if (!health.priceable) return { steps: ['Need a mark.'], expected: 'Idempotent cancel of a real id.', actual: 'mark not priceable', evidence: [prior] };
+  const tick = BigInt(row.tickSize);
+  const price = alignDown(health.markPrice * 80n / 100n, tick);
+  const qty = BigInt(row.minQuantity);
+  const placed = await sendOwner(row.poolAddress, 'placeOrderFor', placeArgs(ownerAddress(), true, price, qty, ORDER_TYPE.LIMIT));
+  const ids = await markets.client.getOwnOpenOrdersOnchain(row.poolAddress, ownerAddress());
+  const orderId = ids[ids.length - 1];
+  const evidence = [prior, `resting tx ${placed.hash} (${cfg.EXPLORER_TX_BASE}${placed.hash})`, `open ids: ${ids.map(String).join(',')}`];
+  if (orderId == null) {
+    return { steps: ['Place a resting GTC.'], expected: 'A real order id.', actual: 'place mined but no open id was returned', evidence };
   }
-  try {
-    await markets.trader.cancelOrder({ pool: row.poolAddress, orderId: 1n, gas: GAS_LIMIT });
-    evidence.push('second cancel returned without throw');
-  } catch (e) {
-    evidence.push(`second cancel: ${String(e instanceof Error ? e.message : e).slice(0, 240)}`);
-  }
+  const first = await simulateOwner(row.poolAddress, 'cancelOrderFor', [ownerAddress(), orderId]);
+  const sent = first.ok ? await sendOwner(row.poolAddress, 'cancelOrderFor', [ownerAddress(), orderId]) : null;
+  const second = await simulateOwner(row.poolAddress, 'cancelOrderFor', [ownerAddress(), orderId]);
+  evidence.push(`orderId ${orderId}`);
+  evidence.push(sent ? `first cancel ${sent.hash} (${cfg.EXPLORER_TX_BASE}${sent.hash})` : `first cancel simulation: ${first.ok ? 'ok' : first.message.slice(0, 200)}`);
+  evidence.push(`second cancel: ${second.ok ? 'simulation succeeded after the first cancel' : second.message.slice(0, 240)}`);
   return {
-    steps: ['Cancel orderId 1 twice on ETH-PERP.', 'A filled-order cancel is recorded when TASK-9 has a real fill id.'],
-    expected: 'Second cancel is idempotent or returns a stable error.',
-    actual: evidence.slice(1).join(' | ') || 'no result',
+    steps: ['Place a resting GTC 20% under the mark via placeOrderFor.', 'Cancel that id, then cancel it again.', 'Record IncorrectSender versus idempotency.'],
+    expected: 'A second cancel of a real id is a stable no-op or a named error, not a missing id.',
+    actual: `orderId ${orderId}. First cancel ${sent ? sent.status : 'not sent'}. Second: ${second.ok ? 'still simulates' : second.message.slice(0, 180)}`,
     evidence,
+  };
+}
+
+async function p15(): Promise<ProbeResult> {
+  const markets = initSdk();
+  const row = await requireMarket(markets, cfg.SYMBOL);
+  const account = signer();
+  const elig = await markets.client.getPerpVoucherEligibility(row.marginBank, account);
+  const built = await markets.trader.buildClaimPerpVoucher({ marginBank: row.marginBank });
+  const publicClient = createPublicClient({ chain: hidekiTestnet, transport: http(cfg.RPC_URL_HTTP) });
+  let revert = 'simulation succeeded';
+  try {
+    await publicClient.call({ to: built.to, data: built.data, account });
+  } catch (e) {
+    revert = e instanceof Error ? e.message : String(e);
+  }
+  const known = contractErrorsAbi.some((item) => 'name' in item && String(revert).includes(String(item.name)));
+  const grant = elig.eligible ? String(elig.grantAmount) : '0';
+  const reason = elig.eligible ? 'none' : elig.reason;
+  return {
+    steps: ['Read getPerpVoucherEligibility for the bot signer.', 'eth_call voucherDistributor.claim(). Do not broadcast.'],
+    expected: 'Eligibility and the claim simulation agree, and any revert is a named SDK error.',
+    actual: `eligible=${elig.eligible} grant=${grant}. eth_call: ${revert.slice(0, 240)}. Selector named in contractErrorsAbi: ${known}.`,
+    evidence: [`eligible: ${elig.eligible}`, `grantAmount: ${grant}`, `reason: ${reason}`, `eth_call: ${revert.slice(0, 400)}`, 'broadcast: none'],
   };
 }
 
@@ -302,6 +371,15 @@ const chain: Array<[string, Omit<ProbeSpec, 'run'>, () => Promise<ProbeResult>]>
 ];
 
 export const PROBES: Record<string, ProbeSpec> = Object.fromEntries(chain.map(([id, spec, exec]) => [id, { ...spec, run: async () => { gate(id); return exec(); } }]));
+
+PROBES['P-15'] = {
+  id: 'P-15',
+  fileSlug: 'P15-unnamed-claim-revert-selector',
+  title: 'Bot voucher claim eth_call reverts with unnamed selector 0x3e31dcc2',
+  severity: 'major',
+  area: 'SDK',
+  async run() { gate('P-15'); return p15(); },
+};
 
 PROBES['P-12'] = {
   id: 'P-12',

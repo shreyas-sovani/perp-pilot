@@ -31,7 +31,26 @@ The SDK `trader.placePerpOrder` signs for the bot's own empty account. The docum
 
 ## Chain probes
 
-Reports are in `feedback/P01` … `feedback/P11`. They carry the revert string or the read. They do not carry order transaction hashes, because those calls reverted in simulation.
+Reached means the probe hit the case the docs describe. Prior legs stay in the report.
+
+| Probe | Reached | What the run showed |
+| --- | --- | --- |
+| P-01 | partial | 6-decimal qty is `InvalidQuantity`, not `InsufficientCollateral`. Over-margin `placeOrderFor` reverted. |
+| P-02 | yes | Price 0 is rejected before send. |
+| P-03 | yes | IOC under the touch reverts `ImmediateOrCancelNoFill()`. |
+| P-04 | yes | Off-tick price reverts `InvalidPrice`. |
+| P-05 | partial | Owner max is non-zero (`limitedBy collateral`). A min-qty bid was accepted. The full ramp to max was not sent. |
+| P-06 | partial | Owner over-cap `placeOrderFor` reverted. Selector `0x714b36d6` was not named in the message. Prior allowance revert kept. |
+| P-07 | partial | SDK row has a stop registry. The call never broadcast: trader wants a configured operator registry. Tokyo is absent from the addresses page. |
+| P-08 | no | Owner and bot both `limitedBy collateral`. `voucherBlocked` stays masked. |
+| P-09 | yes | Indexer mark lagged the chain mark by about 2.46 USDso for 5 minutes. |
+| P-10 | no | No `priceable:false` in 8 samples over 2 minutes. `close()` is not that case. |
+| P-11 | yes | Real order id `10311729937203650058363`. First `cancelOrderFor` succeeded. Second reverted `IncorrectSender` with expected `0x000…0`. |
+| P-12 | yes | Tokyo / hideki / Shannon naming gap. |
+| P-13 | yes | HTTP API is spot-only. |
+| P-14 | yes | bot-kit pins `^0.31.0`. |
+| P-15 | yes | Bot eligibility true, grant 1000. `claim()` eth_call reverted unnamed. No broadcast. |
+| P-16 | yes | Funding page omits the 1e18 integer scale. SDK `annualizedFundingRate` returns 0.1095 on the live `1e14` rate. |
 
 Checked `0xFeAf5C921996FC53f4DEf35e181E766e6D74690A` on 2026-10-27: 50 STT on Tokyo, perps equity 0, `placeable false`, `limitedBy collateral`. It is not `OWNER_ADDRESS`. The funded signer is still missing.
 

@@ -3,21 +3,33 @@ Severity: major
 Area: contracts
 
 ## Steps to reproduce
-1. Read maxPositionSize from getMaxPerpOrderSize when priceable.
-2. Submit quantity above that cap.
-3. Capture selector 0x714b36d6 if present.
+1. Read maxPositionSize on the funded owner.
+2. eth_call placeOrderFor above that cap.
+3. Keep the earlier allowance revert as its own leg.
 
 ## Expected
-MaxPositionSizeExceeded 0x714b36d6 and a readable cap in the API.
+MaxPositionSizeExceeded 0x714b36d6 when size exceeds the per-account cap.
 
 ## Actual
-@somnia-chain/markets-sdk: placeOrder reverted: Error(ERC20: insufficient allowance)
+Prior leg (kept): bot placePerpOrder reverted ERC20: insufficient allowance. That leg is an allowance UX gap, not the position cap. Owner over-cap: The contract function "placeOrderFor" reverted.
+
+Error: InsufficientCollateral()
+ 
+Contract Call:
+  address:   0xd6cb1dd58580b84d76068ac21594219ce03aeddf
+  function:  placeOrderFor(address owner, bool isBid, uint64 userData, uint256 price, uint256 quantity, uint64 expireTimestampNs, uint8 orderType,
 
 ## Evidence
-- maxPositionSize: 399561200000000000000
+- Prior leg (kept): bot placePerpOrder reverted ERC20: insufficient allowance. That leg is an allowance UX gap, not the position cap.
+- owner maxPositionSize: 399561200000000000000
 - limitedBy: collateral
-- revert: no selector in message
-- raw: @somnia-chain/markets-sdk: placeOrder reverted: Error(ERC20: insufficient allowance)
+- The contract function "placeOrderFor" reverted.
+
+Error: InsufficientCollateral()
+ 
+Contract Call:
+  address:   0xd6cb1dd58580b84d76068ac21594219ce03aeddf
+  function:  placeOrderFor(address owner, bool isBid, uint64 userData, uint256 price, uint256 quantity, uint64 expireTimestampNs, uint8 orderType,
 
 ## Environment
 SDK version: @somnia-chain/markets-sdk@0.32.1
