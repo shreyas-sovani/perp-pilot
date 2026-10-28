@@ -6,6 +6,8 @@ export const MarketSnapshot = z.object({
   markAgeMs: z.number().int(), priceable: z.boolean(),
   fundingRate: z.string(), fundingApr: z.string(),
   bestBid: z.string().nullable(), bestAsk: z.string().nullable(),
+  indexerMarkPrice: z.string().default('0'),
+  indexerLagRaw: z.string().default('0'),
   tickSize: z.string(), lotSize: z.string(), minQuantity: z.string(),
   baseDecimals: z.number().int(), quoteDecimals: z.number().int(),
   ts: z.number().int(),
