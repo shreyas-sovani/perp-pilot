@@ -8,7 +8,7 @@ import { syncAccount } from './accountSync.ts';
 import type { Address } from 'viem';
 import 'dotenv/config';
 
-export const markHistory: number[] = []; // one chain mark per tick, capped at EMA_SLOW_TICKS
+export const markHistory: { ts: number; mark: number }[] = []; // chain mark samples, capped at EMA_SLOW_TICKS
 
 type Indexer = {
   getMarketRow: typeof getMarketRow;
@@ -74,7 +74,7 @@ export class MarketDataAgent {
     const indexerMark = BigInt(g?.markPrice || '0');
     const lag = chainMark > indexerMark ? chainMark - indexerMark : indexerMark - chainMark;
     if (chainMark > 0n) {
-      markHistory.push(Number(chainMark));
+      markHistory.push({ ts: Date.now(), mark: Number(chainMark) / 1e18 });
       if (markHistory.length > cfg.EMA_SLOW_TICKS) markHistory.shift();
     }
     const tops = await this.markets.client.getBookTopsOnchain([{ id: row.id, poolAddress: row.poolAddress }]);
@@ -88,7 +88,7 @@ export class MarketDataAgent {
       markAgeMs: Math.max(0, Date.now() - this.lastHealthReadTs),
       priceable,
       fundingRate: String(rate),
-      fundingApr: String(fundingAprFromRate(String(rate))),
+      fundingApr: String(fundingAprFromRate(String(rate), Number(g?.fundingWindowSec ?? f?.fundingWindowSec ?? 28800) || 28800)),
       bestBid: top?.bestBid ?? null,
       bestAsk: top?.bestAsk ?? null,
       indexerMarkPrice: indexerMark.toString(),

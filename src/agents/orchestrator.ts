@@ -2,12 +2,13 @@ import { cfg, IS_DRY } from '../config.ts';
 import { db, kv } from '../db.ts';
 import { busStartJournal, publish } from '../bus.ts';
 import { MarketDataAgent, markHistory } from './marketData.ts';
-import { fundingCarry, emaMomentum, combine } from './signals.ts';
+import { fundingCarry, emaMomentum, bucketMinuteCloses, combine } from './signals.ts';
 import { decide } from './copilot.ts';
 import { evaluate, type PositionLike } from './risk.ts';
 import { ExecutionAgent } from './execution.ts';
 import { guardStep, inflightGuard, readHalted } from './guard.ts';
 import { planDecision } from './actions.ts';
+import { openOrderCount as countOpenOrders } from './openOrders.ts';
 import { startReporter } from './reporter.ts';
 
 export class Orchestrator {
@@ -34,10 +35,7 @@ export class Orchestrator {
     if (!row) return null;
     return { symbol: row.symbol, qty: Number(row.qty), avgEntry: Number(row.avgEntry), qtyBase: row.qty.replace(/^-/, '') };
   }
-  private openOrderCount(): number {
-    const row = db.prepare("SELECT COUNT(*) c FROM orders WHERE state IN ('PREFLIGHT','SUBMITTED','MINED') AND updatedAt > ?").get(Date.now() - 3600_000) as { c: number } | undefined;
-    return row?.c ?? 0;
-  }
+  private openOrderCount(): number { return countOpenOrders(); }
   private async tick() {
     const snap = await this.md.snapshot();
     publish('marketData', 'market.snapshot', snap, IS_DRY());
@@ -65,7 +63,7 @@ export class Orchestrator {
     }
     if (this.halted) return;
 
-    const sigs = [fundingCarry(snap), emaMomentum(markHistory)];
+    const sigs = [fundingCarry(snap), emaMomentum(bucketMinuteCloses(markHistory))];
     publish('signals', 'signals.set', sigs, IS_DRY());
     const decision = await decide(snap, sigs, position);
     publish('copilot', 'copilot.decision', decision, IS_DRY());

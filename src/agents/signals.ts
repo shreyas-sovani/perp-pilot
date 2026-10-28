@@ -1,4 +1,3 @@
-import { cfg } from '../config.ts';
 import type { MarketSnapshot, Signal } from './schemas.ts';
 
 export function ema(values: number[], period: number): number {
@@ -15,10 +14,19 @@ export function fundingCarry(s: MarketSnapshot): Signal {
   return { strategy: 'funding-carry', side: 'flat', strength: 0, rationale: `funding APR ${(apr * 100).toFixed(1)}% inside ±10% band` };
 }
 
+export const EMA_FAST_MIN = 9;
+export const EMA_SLOW_MIN = 21;
+
+export function bucketMinuteCloses(points: { ts: number; mark: number }[]): number[] {
+  const last = new Map<number, number>();
+  for (const p of points) last.set(Math.floor(p.ts / 60_000), p.mark);
+  return [...last.entries()].sort((a, b) => a[0] - b[0]).map(([, mark]) => mark);
+}
+
 export function emaMomentum(history: number[]): Signal {
-  if (history.length < cfg.EMA_SLOW_TICKS) return { strategy: 'ema-momentum', side: 'flat', strength: 0, rationale: `warming up (${history.length}/${cfg.EMA_SLOW_TICKS} ticks)` };
-  const fast = ema(history.slice(-cfg.EMA_FAST_TICKS), cfg.EMA_FAST_TICKS);
-  const slow = ema(history.slice(-cfg.EMA_SLOW_TICKS), cfg.EMA_SLOW_TICKS);
+  if (history.length < EMA_SLOW_MIN) return { strategy: 'ema-momentum', side: 'flat', strength: 0, rationale: `warming up (${history.length}/21 min)` };
+  const fast = ema(history.slice(-EMA_FAST_MIN), EMA_FAST_MIN);
+  const slow = ema(history.slice(-EMA_SLOW_MIN), EMA_SLOW_MIN);
   const spread = (fast - slow) / slow;
   if (spread > 0.0005) return { strategy: 'ema-momentum', side: 'long', strength: Math.min(1, spread * 500), rationale: `EMA fast ${(spread * 1e4).toFixed(1)}bps above slow: uptrend` };
   if (spread < -0.0005) return { strategy: 'ema-momentum', side: 'short', strength: Math.min(1, -spread * 500), rationale: `EMA fast ${(spread * 1e4).toFixed(1)}bps below slow: downtrend` };

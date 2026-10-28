@@ -28,6 +28,11 @@ if (!equityCols.some((c) => c.name === 'fundingOwed')) {
   try { db.exec('ALTER TABLE equity ADD COLUMN fundingOwed TEXT'); }
   catch (e) { if (!String(e).includes('duplicate column')) throw e; }
 }
+const orderCols = db.prepare('PRAGMA table_info(orders)').all() as { name: string }[];
+if (!orderCols.some((c) => c.name === 'clearedAt')) {
+  try { db.exec('ALTER TABLE orders ADD COLUMN clearedAt INTEGER'); }
+  catch (e) { if (!String(e).includes('duplicate column')) throw e; }
+}
 export const kv = {
   get: (k: string): string | null => (db.prepare('SELECT value FROM kv WHERE key=?').get(k) as any)?.value ?? null,
   set: (k: string, v: string) => db.prepare('INSERT INTO kv(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k, v),
