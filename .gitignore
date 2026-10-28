@@ -10,4 +10,5 @@ state.test.db-wal
 state.test.db-shm
 .env
 runs/*.jsonl
+runs/reports/
 *.tsbuildinfo
