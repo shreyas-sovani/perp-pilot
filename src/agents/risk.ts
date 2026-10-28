@@ -11,7 +11,7 @@ export function dailyAnchorUsdso(): number {
 }
 function equityNow(): number { return Number(kv.get('equityUsdso') ?? '0'); }
 
-export interface PositionLike { symbol: string; qty: number; avgEntry: number; }
+export interface PositionLike { symbol: string; qty: number; avgEntry: number; qtyBase?: string; }
 export interface RiskCtx { snapshot: MarketSnapshot; position: PositionLike | null; openOrders: number; }
 
 export function evaluate(intent: OrderIntent, ctx: RiskCtx): RiskVerdict {
@@ -39,7 +39,7 @@ export function evaluate(intent: OrderIntent, ctx: RiskCtx): RiskVerdict {
     const equity = Math.max(1, dailyAnchorUsdso());
     if (projected / equity > cfg.MAX_LEVERAGE_EFF) reasons.push('E_CAP_LEVERAGE');
     if (ctx.openOrders >= cfg.MAX_OPEN_ORDERS && !intent.reduceOnly) reasons.push('E_MAX_OPEN_ORDERS');
-    const realized = Number(kv.get('realizedToday') ?? '0');
+    const realized = Number(kv.get(`realized:${dayKey()}`) ?? '0');
     if (realized <= -cfg.DAILY_LOSS_CAP_USDSO) reasons.push('E_DAILY_LOSS');
     // price-band veto: refuse entries when mark moved > 50bps since snapshot
     if (intent.limitPriceUsdso) {

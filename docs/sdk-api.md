@@ -486,4 +486,6 @@ Selector cross-check (not a `.d.ts` declaration). `viem.toFunctionSelector` on 2
 - `cancelOrderFor(address,uint128)` → `0xe37b444b` (matches `CANCEL_ORDER_FOR_SELECTOR`).
 - `cancelOrderFor(uint128)` → `0x07c0a8df` (does not match).
 
+Day realized PnL is not a field of `getPerpPositionAnalytics`. The nearest real read is `client.listPerpPositionChanges` (`dist/somniaMarketsClient.d.ts`, row type `PerpPositionChange.realizedPnl` in `dist/perp/history.d.ts`). `src/agents/accountSync.ts` sums `REDUCE`/`CLOSE`/`FLIP` rows since UTC midnight into `kv realized:<dayKey>`.
+
 `payable` and return types are not part of a selector. The repo ABI in `src/agents/execution.ts` already uses that `placeOrderFor` argument list plus `payable returns (bool success, uint128 orderId)`. That return tail is repo code, not an SDK declaration. Do not invent `cancelOrderFor` / `reduceOrderFor` ABIs from the selector match alone; Phase 12 must cite this section before encoding one.

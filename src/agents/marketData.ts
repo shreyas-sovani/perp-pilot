@@ -4,6 +4,8 @@ import { getMarketRow, getLatestFundingUpdate, fundingAprFromRate } from '../ind
 import { MarketSnapshot, type MarketSnapshot as MS } from './schemas.ts';
 import { privateKeyToAccount } from 'viem/accounts';
 import { log } from '../logger.ts';
+import { syncAccount } from './accountSync.ts';
+import type { Address } from 'viem';
 import 'dotenv/config';
 
 export const markHistory: number[] = []; // one chain mark per tick, capped at EMA_SLOW_TICKS
@@ -28,6 +30,20 @@ export class MarketDataAgent {
   async warmup() {
     if (!this.marketRow) this.marketRow = await requireMarket(this.markets, cfg.SYMBOL);
     return this.marketRow;
+  }
+
+  async syncAccount() {
+    if (!this.marketRow) await this.warmup();
+    const row = this.marketRow!;
+    return syncAccount({
+      reader: this.markets.client as never,
+      marginBank: row.marginBank,
+      account: this.accountAddress() as Address,
+      pool: row.poolAddress,
+      symbol: cfg.SYMBOL,
+      baseDecimals: Number(row.baseDecimals),
+      quoteDecimals: Number(row.quoteDecimals),
+    });
   }
 
   accountAddress(): string {

@@ -7,7 +7,7 @@ import { kv } from '../src/db.ts';
 // Cap test needs a full book: a 500 order on an empty book is clamped (room > 1), not E_CAP_NOTIONAL.
 kv.set('equityUsdso', '1000');
 kv.set(`anchor:${dayKey()}`, '1000');
-kv.set('realizedToday', '0');
+kv.set(`realized:${dayKey()}`, '0');
 
 const snap = MarketSnapshot.parse({
   symbol: 'ETH-PERP', markPrice: '3000000000000000000000', indexPrice: '3000000000000000000000',
@@ -21,7 +21,7 @@ const intent = (o: Partial<Record<string, unknown>> = {}) => OrderIntent.parse({
 const ctx = { snapshot: snap, position: null, openOrders: 0 };
 
 it('approves a small legal intent', () => {
-  kv.set('realizedToday', '0');
+  kv.set(`realized:${dayKey()}`, '0');
   expect(evaluate(intent(), ctx).approved).toBe(true);
 });
 it('vetoes over-cap notional entirely when no room', () =>
@@ -34,6 +34,6 @@ it('vetoes stale mark', () =>
 it('vetoes wrong market', () =>
   expect(evaluate(intent({ symbol: 'BTC-PERP' }), ctx).reasons).toContain('E_WRONG_MARKET'));
 it('vetoes when daily loss cap hit', () => {
-  kv.set('realizedToday', '-99');
+  kv.set(`realized:${dayKey()}`, '-99');
   expect(evaluate(intent(), ctx).reasons).toContain('E_DAILY_LOSS');
 });
