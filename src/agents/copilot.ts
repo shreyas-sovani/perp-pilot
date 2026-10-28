@@ -10,7 +10,9 @@ Legal actions: open_long, open_short, increase, reduce, close, hold, cancel_all.
 Prefer 'hold' unless signals align. Never explain outside the JSON. Respond with ONLY JSON matching:
 {"action":"...","notionalUsdso":"<string, 1-50>","rationale":"<one sentence>","confidence":<0..1>}`;
 
-export async function decide(snap: MarketSnapshot, signals: Signal[], position: PositionLike | null): Promise<Decision> {
+type CopilotClient = { messages: { create: (args: unknown) => Promise<{ content: { type: string; text?: string }[] }> } };
+
+export async function decide(snap: MarketSnapshot, signals: Signal[], position: PositionLike | null, deps?: { client?: CopilotClient }): Promise<Decision> {
   const rule = signals.find(s => s.side !== 'flat');
   const fallback: Decision = {
     action: rule ? (rule.side === 'long' ? 'open_long' : rule.side === 'short' ? 'open_short' : 'hold') : 'hold',
@@ -19,10 +21,11 @@ export async function decide(snap: MarketSnapshot, signals: Signal[], position: 
     confidence: rule ? Math.min(1, rule.strength) : 0,
     source: 'rule',
   };
-  if (!cfg.ANTHROPIC_API_KEY) return fallback;
+  if (!cfg.ANTHROPIC_API_KEY && !deps?.client) return fallback;
   try {
-    const client = new Anthropic({ apiKey: cfg.ANTHROPIC_API_KEY });
-    const res = await client.messages.create({
+    const client: CopilotClient = deps?.client ?? new Anthropic({ apiKey: cfg.ANTHROPIC_API_KEY, timeout: 4_000, maxRetries: 0 }) as unknown as CopilotClient;
+    const res = await Promise.race([
+      client.messages.create({
       model: 'claude-haiku-4-5-20251001', max_tokens: 300,
       system: SYSTEM,
       messages: [{ role: 'user', content: JSON.stringify({
@@ -31,9 +34,11 @@ export async function decide(snap: MarketSnapshot, signals: Signal[], position: 
         signals, position: position ? { qty: position.qty, avgEntry: position.avgEntry } : null,
         dailyLossCapUsdso: cfg.DAILY_LOSS_CAP_USDSO, notionalCapUsdso: cfg.NOTIONAL_CAP_USDSO,
       }) }],
-    });
+    }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('copilot timeout')), 4_000)),
+    ]);
     const block = res.content[0];
-    const raw = block && block.type === 'text' ? block.text : '';
+    const raw = block && block.type === 'text' ? (block.text ?? '') : '';
     const matched = raw.match(/\{[\s\S]*\}/);
     if (!matched) return fallback;
     const parsed = Decision.parse(JSON.parse(matched[0]));

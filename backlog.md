@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-12.3
+* **Last Completed Task:** TASK-12.4
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1509,7 +1509,7 @@
   * *Exact Action:* New `src/agents/reporter.ts` subscribing to the bus: `execution.report` with state REJECTED, `orchestrator tick.error`, risk verdicts containing `E_STALE_MARK`/`E_MARK_NOT_PRICEABLE`, and `guard.trigger` → insert a findings row (id = `auto-<sha1(kind+reason+day)[12]>`) and render `feedback/auto-<slug>.md` via `template.ts`, status `open`, idempotent by id. This delivers the PRD §2.3 claim "every MVP incident auto-generates a feedback report."
   * *Verification Criteria:* Unit test: publish fake rejection envelope ⇒ exactly one findings row + one file; republish ⇒ no duplicate.
 
-- [ ] **TASK-12.4: Copilot hardening.**
+- [x] **TASK-12.4: Copilot hardening.**
   * *Exact Action:* Anthropic call gets `timeout: 4_000, maxRetries: 0` (PRD §10 promises a timeout; a hang stalls the guard too — same tick loop). Pin `@anthropic-ai/sdk` to the installed version in `package.json` (currently `"latest"`).
   * *Verification Criteria:* Test with a mocked slow SDK asserts rule fallback returns < 5 s; `npm ls @anthropic-ai/sdk` shows the pinned version.
 
