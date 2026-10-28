@@ -1,13 +1,15 @@
 import pino from 'pino';
-const REDACT = [/private[_-]?key/i, /api[_-]?key/i, /0x[0-9a-fA-F]{64}/, /seed|mnemonic/i];
-const redactString = (s: string): string => (REDACT.some(r => r.test(s)) ? '[REDACTED]' : s);
+const SECRET_KEY = /private|key|secret|mnemonic/i;
+const redactString = (s: string, key?: string): string => (key && SECRET_KEY.test(key) ? '[REDACTED]' : s);
 const censor = (o: unknown, key?: string): unknown => {
-  if (key && REDACT.some(r => r.test(key))) return '[REDACTED]';
-  if (typeof o === 'string') return redactString(o);
+  if (key && SECRET_KEY.test(key)) return '[REDACTED]';
+  if (typeof o === 'string') return redactString(o, key);
   if (Array.isArray(o)) return o.map((v) => censor(v));
   if (o && typeof o === 'object') return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, censor(v, k)]));
   return o;
 };
+export function redactForLog(value: unknown): unknown { return censor(value); }
+
 export const log = pino({
   level: process.env.LOG_LEVEL ?? 'info',
   redact: { paths: ['privateKey', 'apiKey', '*.privateKey', '*.apiKey'], censor: '[REDACTED]' },

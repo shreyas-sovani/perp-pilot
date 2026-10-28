@@ -44,10 +44,11 @@ function alignTick(price: bigint, tick: bigint, side: 'buy' | 'sell'): bigint {
   return down > 0n ? down : tick;
 }
 
-function alignLot(qty: bigint, lot: bigint, minQty: bigint): bigint {
+export function alignLot(qty: bigint, lot: bigint, minQty: bigint): bigint {
   const step = lot > 0n ? lot : 1n;
+  const minAligned = minQty % step === 0n ? minQty : minQty + (step - (minQty % step));
   let q = qty - (qty % step);
-  if (q < minQty) q = minQty - (minQty % step);
+  if (q < minAligned) q = minAligned;
   return q;
 }
 

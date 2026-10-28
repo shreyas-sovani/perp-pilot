@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-14.8
+* **Last Completed Task:** TASK-15.2 (15.4 and 15.5 also landed; 15.3 dashboard, 15.6 live re-proof, and 15.7 README are still open)
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1569,11 +1569,11 @@ Standing rules for this phase: every report states which documented case it reac
 
 ### Phase 15: Harness Completion, Dashboard, Live Re-Proof, README
 
-- [ ] **TASK-15.1: `scripts/report-render.ts` (FR-9 — script is referenced by package.json but missing).**
+- [x] **TASK-15.1: `scripts/report-render.ts` (FR-9 — script is referenced by package.json but missing).**
   * *Exact Action:* `npm run report -- <slug|id>` re-renders one report from its findings row; `report:pack` (`--all`) regenerates every reported finding and prints the run summary: orders by state, tx-hash list with explorer links, equity first/last, realized PnL for the day.
   * *Verification Criteria:* Both npm scripts run clean on the existing DB; summary output matches a DB query.
 
-- [ ] **TASK-15.2: `scripts/replay.ts` (FR-12 — also missing).**
+- [x] **TASK-15.2: `scripts/replay.ts` (FR-12 — also missing).**
   * *Exact Action:* Read a `runs/<date>.jsonl`, re-run the pure decision path (signals + `evaluate`) over recorded snapshots, diff simulated vs recorded decisions, print a summary. Refuse to start if any line matches `/0x[0-9a-fA-F]{64}/` with a key-shaped field name; assert no signing material ever parsed.
   * *Verification Criteria:* Runs on `runs/2026-10-27.jsonl` and prints a diff; test with a fixture journal (including one poisoned line → refusal).
 
@@ -1581,11 +1581,11 @@ Standing rules for this phase: every report states which documented case it reac
   * *Exact Action:* Bind `127.0.0.1` explicitly (`server.listen(PORT, '127.0.0.1')` — PRD FR-8 says localhost); short positions show mirrored TP/SL lines; funding APR as human %; sparkline uses the synced equity series (now non-constant via TASK-11.4); findings rows link their report files.
   * *Verification Criteria:* `curl` from a non-loopback interface fails; long and short TP/SL both render correctly given fixture positions.
 
-- [ ] **TASK-15.4: Logger stops redacting tx hashes.**
+- [x] **TASK-15.4: Logger stops redacting tx hashes.**
   * *Exact Action:* The generic `/0x[0-9a-fA-F]{64}/` string redaction (`src/logger.ts:2`) matches tx hashes — evidence strings become `[REDACTED]`. Narrow it: redact by key NAME (already covered) plus the 64-hex pattern only for values under keys matching `/private|key|secret|mnemonic/i`. Verify txHash survives.
   * *Verification Criteria:* Test: log an object `{ txHash: '0x' + 'a'.repeat(64) }` → output contains the hash; `{ privateKey: '0x' + 'a'.repeat(64) }` → redacted.
 
-- [ ] **TASK-15.5: `alignLot` round-UP to a valid size.**
+- [x] **TASK-15.5: `alignLot` round-UP to a valid size.**
   * *Exact Action:* `src/agents/execution.ts:42-47` — when qty rounds below `minQty` (minQty not a lot multiple, e.g. min 15 / lot 10 currently yields 10 → wrongly rejected), round UP to the smallest lot multiple ≥ minQty. Test with minQty=15, lot=10 → 20.
   * *Verification Criteria:* New test green; no regression in existing execution tests.
 
