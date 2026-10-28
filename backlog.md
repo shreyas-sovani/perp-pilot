@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-11.5
+* **Last Completed Task:** TASK-12.1
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1497,7 +1497,7 @@
 
 ### Phase 12: Action Coverage (close/reduce/cancel) + Auto-Reporter
 
-- [ ] **TASK-12.1: ExecutionAgent learns cancel and reduce.**
+- [x] **TASK-12.1: ExecutionAgent learns cancel and reduce.**
   * *Exact Action:* Wire per TASK-11.1 extraction, owner/linked semantics per the bot-kit perps guide: `cancelAllOrders*` / `cancelOrderFor(orderId)`; reduce path — if the SDK exposes a reduce-only entry (perps orders doc: reduce-only orders can only shrink a position), use it; otherwise send an opposite-side order capped at |position qty| and record the deviation in `docs/sdk-api.md`. Reuse the ExecutionReport states; record cancel results in the orders table.
   * *Verification Criteria:* Dry-run unit tests with a mocked trader for cancel-all, cancel-one, reduce; live proof deferred to TASK-15.6.
 

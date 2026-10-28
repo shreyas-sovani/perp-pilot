@@ -7,8 +7,8 @@ import { decide } from './copilot.ts';
 import { evaluate, type PositionLike } from './risk.ts';
 import { ExecutionAgent } from './execution.ts';
 import { guardStep, inflightGuard, readHalted } from './guard.ts';
-import { OrderIntent } from './schemas.ts';
-import { bookLimitPrice } from './pricing.ts';
+import { planDecision } from './actions.ts';
+import { startReporter } from './reporter.ts';
 
 export class Orchestrator {
   private md = new MarketDataAgent();
@@ -19,6 +19,7 @@ export class Orchestrator {
   isHalted(): boolean { return this.halted; }
   async start() {
     busStartJournal();
+    startReporter();
     await this.md.warmup();
     kv.set('startedAt', String(Date.now()));
     for (;;) {
@@ -70,21 +71,15 @@ export class Orchestrator {
     publish('copilot', 'copilot.decision', decision, IS_DRY());
     db.prepare('INSERT INTO decisions(ts,agent,kind,payloadJson,rationale) VALUES(?,?,?,?,?)')
       .run(Date.now(), 'copilot', 'decision', JSON.stringify(decision), decision.rationale);
-    if (decision.action === 'hold' || decision.action === 'cancel_all') return;
-    if (position && Math.abs(position.qty) > 1e-12 && !decision.action.startsWith('open') && decision.action !== 'increase') {
-      return;
-    }
-    const intent = OrderIntent.parse({
-      id: crypto.randomUUID(), symbol: cfg.SYMBOL,
-      side: decision.action === 'open_short' || decision.action === 'reduce' ? 'sell' : 'buy',
-      reduceOnly: false, notionalUsdso: decision.notionalUsdso ?? '10', tif: 'GTC',
-      limitPriceUsdso: bookLimitPrice(decision.action === 'open_short' || decision.action === 'reduce' ? 'sell' : 'buy', snap),
-      origin: 'copilot',
-    });
+    const planned = planDecision(decision, position, snap, mark);
+    if (planned.kind === 'none') return;
+    if (planned.kind === 'cancel_all') { await this.exec.cancelAll(); return; }
+    const intent = planned.intent;
     const v = evaluate(intent, { snapshot: snap, position, openOrders: this.openOrderCount() });
     publish('risk', 'risk.verdict', v, IS_DRY());
     if (!v.approved) return;
     const notional = v.adjustedNotionalUsdso ?? intent.notionalUsdso;
-    await this.exec.execute({ ...intent, notionalUsdso: notional });
+    if (intent.reduceOnly) await this.exec.reduce({ ...intent, notionalUsdso: notional }, intent.qtyBase ?? '0');
+    else await this.exec.execute({ ...intent, notionalUsdso: notional });
   }
 }
