@@ -288,7 +288,7 @@ Live GraphQL `2026-10-27` against `https://hideki-dev.smk.somnia.host/v1/graphql
 
 - `getMarketRow('ETH')` returned `baseSymbol=ETH`, `markPrice=2308975887405703000000` (raw 18-decimal quote per whole base, about 2308.98), `fundingRate=100000000000000`.
 - `getLatestFundingUpdate` returned `timestamp=1793092758`, `fundingRate=100000000000000`.
-- `fundingAprFromRate` is specified as `Number(rate) * 3 * 365`. On that raw integer it prints `10950000000000000000.00`, not a percent. The helper was left unchanged. If the raw rate is 1e18-scaled, `1e14/1e18 = 0.0001` and `0.0001 * 3 * 365 = 0.1095` (10.95% APR). That scale is a hypothesis, not confirmed against an SDK type. Signals must not treat the raw helper output as a human APR until the scale is verified.
+- Funding integer scale, verified 2026-10-29 from `dist/funding.d.ts`, not from a guessed divisor. `FUNDING_PRECISION = 1e18`. `annualizedFundingRate(100000000000000n, 28800) = 0.1095`. Live ETH `Market` row: `fundingRate=100000000000000`, `fundingWindowSec=28800`, `fundingIntervalSec=3600`. `getPerpSystemConfig` has no scale field. `getFundingPayments` for the owner returned 0 rows, so the payment identity was not solvable from settlements. The trading funding page (fetched 2026-10-29) still quotes only decimal fractions. Report: `feedback/P16-funding-rate-integer-scale.md`. `fundingAprFromRate` now calls `annualizedFundingRate`.
 
 ## TASK-11.1 — account / position / book surface (2026-10-29)
 

@@ -1,3 +1,4 @@
+import { annualizedFundingRate } from '@somnia-chain/markets-sdk';
 import { cfg } from './config.ts';
 
 async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
@@ -54,7 +55,9 @@ export async function getFundingPayments(account: string, limit = 20) {
   return d.FundingPayment;
 }
 
-// funding rate is per 8h window; APR = rate * 3 windows/day * 365
-export function fundingAprFromRate(rate: string | number): number {
-  return Number(rate) * 3 * 365;
+// Per-window rate is 1e18-scaled (FUNDING_PRECISION). APR is a fraction: 0.1095 = 10.95%.
+export function fundingAprFromRate(rate: string | number, fundingWindowSec = 28800): number {
+  const raw = BigInt(String(rate).split('.')[0] || '0');
+  if (fundingWindowSec <= 0) return 0;
+  return annualizedFundingRate(raw, fundingWindowSec);
 }
