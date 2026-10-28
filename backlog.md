@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-11.2
+* **Last Completed Task:** TASK-11.3
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -41,6 +41,7 @@
     * Probes P-01/P-05/P-06/P-07/P-08/P-10/P-11 never reached the documented case (details Phase 14); P-03 did. The 5% price band (comment claims 50 bps) and 630-tick EMA warmup are this repo's own rules, not docs'.
     * Bot-account `claimPerpVoucher` simulation reverts with data `0x3e31dcc2`, errorName unset, selector absent from the SDK error ABI and unnamed in the docs errors page — reason unverified, nothing broadcast. New probe P-15.
 * **Current Blockers/Bugs:** Repo PRIVATE ⇒ feedback reports invisible to judges since 2026-10-27 — first-report-wins clock is being wasted. TASK-10.3 human step was prompted 2026-10-29 and not performed by the agent. Make the repo public and submit both tracks. Trading-truth bugs are specced in Phases 11–13. `.env` `DRY_RUN=true`.
+  * TASK-11.3: entry and guard limits price through `bestAsk`/`bestBid` (`src/agents/pricing.ts`). Missing top falls back to the chain mark.
   * TASK-11.2: `MarketDataAgent.snapshot` reads `getPerpHealthSnapshot` for `markPrice`/`priceable` and `getBookTopsOnchain` for bid/ask. GraphQL mark is `indexerMarkPrice` + `indexerLagRaw`. `getMaxPerpOrderSize` is a log-only cross-check.
   * TASK-11.1 extraction (2026-10-29) lives in `docs/sdk-api.md`. `BookTop.bestBid`/`bestAsk` are decimal strings. `Trader.cancel*` / `reduceOrder` act as the signer. `*For` methods are absent. Selector match: `placeOrderFor(address,bool,uint64,uint256,uint256,uint64,uint8,uint8,address,uint96)` = `0x80054449`; `cancelOrderFor(address,uint128)` = `0xe37b444b`. No `reduceOnly` on `placePerpOrder`.
 
@@ -1476,7 +1477,7 @@
   * *Exact Action:* In `src/agents/marketData.ts`: `markPrice` + `priceable` from `getPerpHealthSnapshot(pool)` (perps dev docs: `priceable:false` = stale mark, quotes no size); `bestBid`/`bestAsk` from `getBookTopsOnchain(pool)`; keep the GraphQL `Market.markPrice` read demoted to a new `indexerMarkPrice` field + `indexerLagRaw = |chain − indexer|`; `markAgeMs` from the health-snapshot read time. Extend `MarketSnapshot` zod schema with the new fields (defaults so old journal lines still parse). Keep the `getMaxPerpOrderSize` priceable probe only as a cross-check log line.
   * *Verification Criteria:* Unit test with mocked SDK: `priceable:false` propagates; tops populate best bid/ask; lag computed; `npm run typecheck` 0.
 
-- [ ] **TASK-11.3: Price entries and guard exits through the book.**
+- [x] **TASK-11.3: Price entries and guard exits through the book.**
   * *Exact Action:* Entry limit price = `ask × (1 + ENTRY_SLIPPAGE_BPS/10⁴)` for buy, `bid × (1 − …)` for sell, from TASK-11.2 tops; fall back to chain mark ± slippage when tops are null (current behavior); guard closes price through the opposite top. Keep `alignTick`. Rationale: perps orders doc — an IOC must be priced through the book because the touch can be gone by the time the tx lands.
   * *Verification Criteria:* New test: given mocked tops, buy limit ≥ ask and sell limit ≤ bid; existing risk tests still green.
 

@@ -3,9 +3,10 @@ import { kv } from '../db.ts';
 import { publish } from '../bus.ts';
 import { OrderIntent } from './schemas.ts';
 import type { PositionLike } from './risk.ts';
+import { bookLimitPrice, type BookQuote } from './pricing.ts';
 
 // Closing in one-way netting mode = opposite-side order of the full position size.
-export function guardIntents(position: PositionLike | null, markUsdso: number): OrderIntent[] {
+export function guardIntents(position: PositionLike | null, markUsdso: number, book?: BookQuote): OrderIntent[] {
   if (!position || Math.abs(position.qty) < 1e-12) return [];
   const long = position.qty > 0;
   const tp = position.avgEntry * (1 + cfg.TP_PCT / 100);
@@ -20,7 +21,10 @@ export function guardIntents(position: PositionLike | null, markUsdso: number): 
     id: crypto.randomUUID(), symbol: position.symbol,
     side: long ? 'sell' : 'buy', reduceOnly: true,
     notionalUsdso: String(Math.abs(position.qty * position.avgEntry)),
-    tif: 'GTC', limitPriceUsdso: String(long ? markUsdso * (1 - cfg.ENTRY_SLIPPAGE_BPS / 10000) : markUsdso * (1 + cfg.ENTRY_SLIPPAGE_BPS / 10000)),
+    tif: 'GTC',
+    limitPriceUsdso: book
+      ? bookLimitPrice(long ? 'sell' : 'buy', book)
+      : String(long ? markUsdso * (1 - cfg.ENTRY_SLIPPAGE_BPS / 10000) : markUsdso * (1 + cfg.ENTRY_SLIPPAGE_BPS / 10000)),
     origin: 'guard',
   })];
 }

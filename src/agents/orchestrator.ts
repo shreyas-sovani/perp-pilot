@@ -8,6 +8,7 @@ import { evaluate, type PositionLike } from './risk.ts';
 import { ExecutionAgent } from './execution.ts';
 import { guardIntents } from './guard.ts';
 import { OrderIntent } from './schemas.ts';
+import { bookLimitPrice } from './pricing.ts';
 
 export class Orchestrator {
   private md = new MarketDataAgent();
@@ -41,7 +42,7 @@ export class Orchestrator {
     db.prepare('INSERT OR REPLACE INTO equity(ts,equityUsdso,unrealizedPnl) VALUES(?,?,?)')
       .run(Date.now(), kv.get('equityUsdso')!, position ? String((mark - position.avgEntry) * position.qty) : '0');
 
-    for (const gi of guardIntents(position, mark)) {
+    for (const gi of guardIntents(position, mark, snap)) {
       const v = evaluate(gi, { snapshot: snap, position, openOrders: this.openOrderCount() });
       publish('risk', 'risk.verdict', v, IS_DRY());
       if (v.approved) {
@@ -65,7 +66,7 @@ export class Orchestrator {
       id: crypto.randomUUID(), symbol: cfg.SYMBOL,
       side: decision.action === 'open_short' || decision.action === 'reduce' ? 'sell' : 'buy',
       reduceOnly: false, notionalUsdso: decision.notionalUsdso ?? '10', tif: 'GTC',
-      limitPriceUsdso: String(mark * (1 + (decision.action === 'open_short' ? -1 : 1) * cfg.ENTRY_SLIPPAGE_BPS / 10000)),
+      limitPriceUsdso: bookLimitPrice(decision.action === 'open_short' || decision.action === 'reduce' ? 'sell' : 'buy', snap),
       origin: 'copilot',
     });
     const v = evaluate(intent, { snapshot: snap, position, openOrders: this.openOrderCount() });
