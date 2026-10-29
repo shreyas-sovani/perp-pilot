@@ -12,7 +12,7 @@
 
 ## 🧠 CURRENT STATE MONITOR
 * **Current Phase:** Phase 11 — Chain-Truth Corrections (appended 2026-10-28). See the SEQUENCING NOTE at the top of Phase 11 — TASK-10.3's human step (public repo + submit) runs FIRST, TASK-10.1/10.2 run LAST (as TASK-15.7).
-* **Last Completed Task:** TASK-15.3
+* **Last Completed Task:** TASK-15.7
 * **Active Working Context / Variable State:**
   * Node v22.19.0, npm 10.9.3. Installed `@somnia-chain/markets-sdk@0.32.1` (exact), `zod@4.6.7`, `@anthropic-ai/sdk@1.3.0`. `npm run typecheck` exits 0.
   * Directory tree exists: `src/agents`, `src/feedback`, `src/dashboard/public`, `scripts`, `tests`, `feedback`, `docs`, `runs`.
@@ -1407,7 +1407,7 @@
 
 ### Phase 10: README, Docs & Submission
 
-- [ ] **TASK-10.1: Write `README.md` (bounty format).**
+- [x] **TASK-10.1: Write `README.md` (bounty format).**
   * *Objective:* Judges' first screen: what/who/how-to-run + evidence.
   * *Input/Dependencies:* All prior.
   * *Exact Action:* Create `README.md` with EXACTLY these sections (fill brackets from real values):
@@ -1422,7 +1422,7 @@
     9. **Using Somnia primitives** — state plainly which primitive is used where (Reactivity-style event subscriptions for fills; Somnia Agents stretch) — do not overclaim.
   * *Verification Criteria:* A reader who has never seen the project can go from README to a dry run with no other file. Verify by following the README steps literally in a fresh shell with a fresh `.env`.
 
-- [ ] **TASK-10.2: Full quality gate.**
+- [x] **TASK-10.2: Full quality gate.**
   * *Exact Action:* Run ALL: `npm run typecheck` (0 errors), `npm test` (all pass), `npm run demo:dry` (runs 5 min clean), `npm run doctor` (all ✅ except optional), `ls feedback/ | wc -l` (≥ 12), `grep -rn "PRIVATE_KEY" src/ scripts/ --include='*.ts' | grep -v process.env | grep -v BOT_PRIVATE_KEY` (empty). Fix anything red before proceeding.
   * *Verification Criteria:* All commands green; note outputs in the task state.
 
@@ -1589,11 +1589,11 @@ Standing rules for this phase: every report states which documented case it reac
   * *Exact Action:* `src/agents/execution.ts:42-47` — when qty rounds below `minQty` (minQty not a lot multiple, e.g. min 15 / lot 10 currently yields 10 → wrongly rejected), round UP to the smallest lot multiple ≥ minQty. Test with minQty=15, lot=10 → 20.
   * *Verification Criteria:* New test green; no regression in existing execution tests.
 
-- [ ] **TASK-15.6: [HUMAN_STEP] Live re-proof through the corrected loop.**
+- [x] **TASK-15.6: [HUMAN_STEP] Live re-proof through the corrected loop.**
   * *Exact Action:* With `DRY_RUN=false`, `npm run demo:live -- --minutes ≤30`: open a position (rule mode fine), let the guard close it (or close via copilot action), then verify via `getPerpPosition` that the account is FLAT, the halt persisted, and no further orders fired after the close. Append the tx hashes to `docs/EVIDENCE.md`. This run is the demo-video source. Confirm with the human before broadcasting.
   * *Verification Criteria:* EVIDENCE.md gains the run; post-close order count from the DB is zero; `getPerpPosition` reads zero.
 
-- [ ] **TASK-15.7: Execute TASK-10.1 (README) and TASK-10.2 (gate) now, against corrected behavior.**
+- [x] **TASK-15.7: Execute TASK-10.1 (README) and TASK-10.2 (gate) now, against corrected behavior.**
   * *Exact Action:* Write the README per TASK-10.1 using the corrected facts (chain-mark pricing, on-chain account truth, real funding APR, warmup window, probe reached/not-reached index, new EVIDENCE run); refresh `docs/dashboard-screenshot.png`; run the full TASK-10.2 gate; push.
   * *Verification Criteria:* TASK-10.1/10.2 verification criteria met; `git status` clean; pushed to the now-public repo.
 
