@@ -97,15 +97,16 @@ function paint() {
     $('market').innerHTML =
       '<div class="num">' + fmt(snap.markPrice) + '</div>' +
       '<div>index ' + fmt(snap.indexPrice) + '</div>' +
-      '<div>funding APR raw ' + snap.fundingApr + '</div>' +
+      '<div>funding APR ' + (Number.isFinite(Number(snap.fundingApr)) ? (Number(snap.fundingApr) * 100).toFixed(2) + '%' : '—') + '</div>' +
       '<div class="' + (fresh ? 'ok' : 'bad') + '">' + (snap.priceable ? 'priceable' : 'not priceable') + '  age ' + age(snap.markAgeMs) + '</div>';
   }
   const pos = state.position[0];
   if (!pos) $('position').textContent = 'flat';
   else {
     const entry = Number(pos.avgEntry);
-    const tp = entry * (1 + p.tpPct / 100);
-    const sl = entry * (1 - p.slPct / 100);
+    const long = Number(pos.qty) > 0;
+    const tp = long ? entry * (1 + p.tpPct / 100) : entry * (1 - p.tpPct / 100);
+    const sl = long ? entry * (1 - p.slPct / 100) : entry * (1 + p.slPct / 100);
     $('position').innerHTML = 'qty ' + pos.qty + '<br>entry ' + entry + '<br>TP ' + tp.toFixed(2) + '  SL ' + sl.toFixed(2);
   }
   $('orders').innerHTML = state.orders.map((o) => {
@@ -118,7 +119,11 @@ function paint() {
     try { const j = JSON.parse(d.payloadJson); action = j.action || action; conf = j.confidence != null ? ' ' + j.confidence : ''; } catch (e) {}
     return '<li><span class="chip">' + esc(d.agent) + '</span>' + esc(action) + esc(conf) + '<div class="meta">' + esc(d.rationale || '') + '</div></li>';
   }).join('') || '<li class="meta">none</li>';
-  $('findings').innerHTML = state.findings.map((f) => '<li><span class="chip">' + esc(f.severity) + '</span>' + esc(f.probeId || '') + ' ' + esc(f.title) + '</li>').join('') || '<li class="meta">none</li>';
+  $('findings').innerHTML = state.findings.map((f) => {
+    const file = String(f.reportPath || '').split('/').pop();
+    const title = /^[\w.-]+\.md$/.test(file) ? '<a href="/files/feedback/' + encodeURIComponent(file) + '">' + esc(f.title) + '</a>' : esc(f.title);
+    return '<li><span class="chip">' + esc(f.severity) + '</span>' + esc(f.probeId || '') + ' ' + title + '</li>';
+  }).join('') || '<li class="meta">none</li>';
   const c = $('spark');
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);

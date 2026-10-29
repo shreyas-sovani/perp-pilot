@@ -81,4 +81,12 @@ function pumpJournal() {
 }
 setInterval(pumpJournal, 500);
 
-server.listen(cfg.PORT, () => console.log(`dashboard http://localhost:${cfg.PORT}`));
+app.get('/files/feedback/:name', (req, res) => {
+  const name = req.params.name;
+  if (!/^[\w.-]+\.md$/.test(name)) { res.status(400).end(); return; }
+  const full = fileURLToPath(new URL(`../../feedback/${name}`, import.meta.url));
+  if (!existsSync(full)) { res.status(404).end(); return; }
+  res.type('text/plain').sendFile(full);
+});
+
+server.listen(cfg.PORT, '127.0.0.1', () => console.log(`dashboard http://127.0.0.1:${cfg.PORT}`));
