@@ -25,6 +25,17 @@ Sent with the bot key via `placeOrderFor` for owner `0xf9beA92fee8105aC59186dAce
 
 `getPerpPosition` for the owner on ETH-PERP was size 0 after the last sell. A follow-up `cancelOrderFor` on those ids reverted `IncorrectSender`, which matches an order that already filled and is no longer resting.
 
+## Corrected-loop re-proof (2026-10-29)
+
+`DRY_RUN=false ./node_modules/.bin/tsx scripts/trade.ts --live --minutes 4` opened a short. Three IOC-crossing sells filled on the owner account. A guard-origin reduce then bought the position back to flat. `getPerpPosition` size after the buy was `0`. `kv halted` is `guard-close`. A following one-minute live run added no rows (order count stayed 48). Chain open orders were empty. Notional per open was about 20 USDso.
+
+| # | time (UTC) | action | tx hash | explorer |
+|---|---|---|---|---|
+| 1 | 2026-10-29T17:37:56Z | sell open | `0x14a0a92cd8c1ca9a82b0e5b56770e97880e0bb872a9416d2c9dc5e7986a4c3cc` | https://explorer.testnet.somnia.network/tokyo/tx/0x14a0a92cd8c1ca9a82b0e5b56770e97880e0bb872a9416d2c9dc5e7986a4c3cc |
+| 2 | 2026-10-29T17:38:00Z | sell open | `0x0973380178a2617e5ffa8d1b3b502dac39c16137179717c4ffc43ba9d01abd08` | https://explorer.testnet.somnia.network/tokyo/tx/0x0973380178a2617e5ffa8d1b3b502dac39c16137179717c4ffc43ba9d01abd08 |
+| 3 | 2026-10-29T17:38:03Z | sell open | `0x7a08d1d555b86c1a871434c65f4093e61f442d36966ab5392e275acf43b6c6a9` | https://explorer.testnet.somnia.network/tokyo/tx/0x7a08d1d555b86c1a871434c65f4093e61f442d36966ab5392e275acf43b6c6a9 |
+| 4 | 2026-10-29T17:39:48Z | buy close | `0x038f9ae1605c7641926203fed8e9e9569876a801bbd24e98c199fc6240d63dc6` | https://explorer.testnet.somnia.network/tokyo/tx/0x038f9ae1605c7641926203fed8e9e9569876a801bbd24e98c199fc6240d63dc6 |
+
 ## Why the first attempts had no hash
 
 The SDK `trader.placePerpOrder` signs for the bot's own empty account. The documented path is `placeOrderFor(owner, …)` from [perp-core operator.ts](https://github.com/somnia-chain/dreamdex-bot-kit/blob/main/packages/perp-core/src/operator.ts). The bot was already authorized for place, cancel, and reduce on the ETH-PERP pool. The owner private key is not required and was not used.
